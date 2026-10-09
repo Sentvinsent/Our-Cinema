@@ -14,7 +14,7 @@ A private, shared watchlist for Aleks and Alina.
   both Yes → Agreed, one No → Declined by that person, both No → Declined by both. Watched overrides all.
 - Changes show up live on the other person's device.
 - Shows 10 items at a time with a "show more" button; filter by films or series.
-- Table on desktop, cards on phones, light and dark themes, short animations (off when the device asks for reduced motion).
+- Table on desktop, cards on phones; dark glass theme in black, graphite and aquamarine (`glass.css`); short animations (off when the device asks for reduced motion).
 
 ## How it works
 - Static site (`index.html`, `styles.css`, `app.js`) hosted on GitHub Pages.
