@@ -5,6 +5,7 @@
 :root[data-theme],
 :root:not([data-theme="light"]) {
   color-scheme: dark;
+  supported-color-schemes: light dark;
   --bg: #08090A;
   --surface: rgba(255, 255, 255, .045);
   --surface-2: rgba(255, 255, 255, .035);
@@ -29,6 +30,13 @@
   --glass-hi: inset 0 1px 0 rgba(255, 255, 255, .11);
   --glass-blur: saturate(140%) blur(20px);
   --f-display: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+/* Samsung Internet's "Force Dark mode for web content" leaves pages alone only when they
+   declare their own dark theme ("light dark" + a prefers-color-scheme: dark rule). The page is
+   always dark, so the used scheme stays dark either way. */
+@media (prefers-color-scheme: dark) {
+  :root, :root[data-theme], :root:not([data-theme="light"]) { color-scheme: light dark; --bg: #08090A; }
+  html { background: #08090A; }
 }
 html { background: var(--bg); }
 body { background: transparent; }

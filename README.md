@@ -33,6 +33,11 @@ A private, shared watchlist for Aleks and Alina.
 3. Put the project URL and anon key in `config.js`.
 4. Enable GitHub Pages for this repository (branch `main`, root folder).
 
+## Samsung Internet
+The page declares its own dark theme (`color-scheme: light dark` plus a `prefers-color-scheme: dark` rule), which is how
+Samsung Internet's "Force Dark mode for web content" is told to leave a site alone. Older Samsung Internet versions ignore
+this; there, turn on Settings → Labs → "Use website dark theme".
+
 This product uses the TMDB API but is not endorsed or certified by TMDB.
 
 ## Security
