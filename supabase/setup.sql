@@ -61,20 +61,7 @@ create policy "members add films"    on public.films for insert to authenticated
 create policy "members change films" on public.films for update to authenticated using (public.is_member()) with check (public.is_member());
 create policy "members delete films" on public.films for delete to authenticated using (public.is_member());
 
--- Holds the TMDB key so it never sits in the public code.
-create table if not exists public.app_config (
-  key   text primary key,
-  value text not null default ''
-);
-
-alter table public.app_config enable row level security;
-
-drop policy if exists "members read config"   on public.app_config;
-drop policy if exists "members add config"    on public.app_config;
-drop policy if exists "members change config" on public.app_config;
-create policy "members read config"   on public.app_config for select to authenticated using (public.is_member());
-create policy "members add config"    on public.app_config for insert to authenticated with check (public.is_member());
-create policy "members change config" on public.app_config for update to authenticated using (public.is_member()) with check (public.is_member());
+-- TMDB lookups and the key: run supabase/tmdb-proxy.sql after this file.
 
 -- Live updates between your two devices.
 do $$

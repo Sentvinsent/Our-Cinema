@@ -20,15 +20,16 @@ A private, shared watchlist for Aleks and Alina.
 - **Supabase** handles sign-in (one-time email link) and stores the list.
   Access rules in `supabase/setup.sql` let only the two member accounts read or change anything,
   so the public code and the public anon key in `config.js` expose no data.
-- **TMDB** supplies film data. The TMDB key is saved in the database (table `app_config`),
-  readable only by the two members, never in this repository.
+- **TMDB** supplies film data. The browser never sees the TMDB key: the page calls the database
+  function `tmdb()` (in `supabase/tmdb-proxy.sql`), which checks the caller is a member, reads the key
+  from a table no browser can read, and calls TMDB from the server.
 
 ## Setting it up again from scratch
-1. Create a Supabase project. In the SQL editor, run `supabase/setup.sql` after replacing the two
-   placeholder emails.
+1. Create a Supabase project. In the SQL editor, run `supabase/setup.sql` (after replacing the two
+   placeholder emails), then `supabase/tmdb-proxy.sql`, then store the TMDB key with the insert
+   shown in the comments of `tmdb-proxy.sql`.
 2. In Supabase → Authentication → URL Configuration, set the Site URL to the GitHub Pages address.
 3. Put the project URL and anon key in `config.js`.
 4. Enable GitHub Pages for this repository (branch `main`, root folder).
-5. Sign in and paste the TMDB key when the site asks for it.
 
 This product uses the TMDB API but is not endorsed or certified by TMDB.

@@ -36,18 +36,9 @@
     </div>
     <div class="who">
       <div class="stats" id="stats"></div>
-      <div class="who-row"><span id="whoName"></span><button class="linkbtn" id="settingsBtn" type="button">Settings</button><button class="linkbtn" id="logoutBtn" type="button">Sign out</button></div>
+      <div class="who-row"><span id="whoName"></span><button class="linkbtn" id="logoutBtn" type="button">Sign out</button></div>
     </div>
   </header>
-
-  <div class="banner" id="keyBanner" hidden>
-    <div><b>Connect TMDB to fill in films automatically.</b> Paste your TMDB API key (v3 key or v4 read access token). It's saved in your private database, not in the site's code.</div>
-    <form class="banner-form" id="keyForm" autocomplete="off">
-      <input type="password" id="keyInput" placeholder="TMDB API key" aria-label="TMDB API key">
-      <button class="btn primary" type="submit">Save key</button>
-    </form>
-    <div class="formmsg" id="keyMsg"></div>
-  </div>
 
   <form class="add" id="addForm" autocomplete="off">
     <div class="add-row">
@@ -130,21 +121,6 @@
       <span class="spacer"></span>
       <button type="button" class="btn" id="edCancel">Cancel</button>
       <button type="submit" class="btn primary" id="edSave">Save</button>
-    </div>
-  </form>
-</div>
-
-<!-- Settings -->
-<div class="overlay" id="settings" hidden>
-  <form class="sheet narrow" id="setForm" autocomplete="off" role="dialog" aria-modal="true" aria-labelledby="setTitle">
-    <h2 id="setTitle">Settings</h2>
-    <label class="field"><span class="label">TMDB API key</span><input type="password" id="setKey" placeholder="v3 API key or v4 read access token"></label>
-    <div class="hint">Saved in your private database. Both of you use the same key.</div>
-    <div class="formmsg" id="setMsg"></div>
-    <div class="sheet-actions">
-      <span class="spacer"></span>
-      <button type="button" class="btn" id="setCancel">Close</button>
-      <button type="submit" class="btn primary">Save key</button>
     </div>
   </form>
 </div>

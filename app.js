@@ -19,7 +19,7 @@
 
   let sb = null;
   let films = [], loaded = false, started = false;
-  let tab = "proposed", query = "", tmdbKey = "", me = "";
+  let tab = "proposed", query = "", me = "";
   const expanded = new Set();
   const busy = new Set();
 
@@ -74,24 +74,25 @@
 
   // ---------- TMDB ----------
   class TmdbError extends Error { constructor(kind) { super(kind); this.kind = kind; } }
+  // TMDB is called by a database function that holds the key; the browser never sees it.
   async function tmdb(path, params) {
-    if (!tmdbKey) throw new TmdbError("nokey");
-    const url = new URL("https://api.themoviedb.org/3" + path);
-    for (const [k, v] of Object.entries(params || {})) if (v != null && v !== "") url.searchParams.set(k, v);
-    const headers = { accept: "application/json" };
-    if (tmdbKey.startsWith("eyJ")) headers.Authorization = "Bearer " + tmdbKey;
-    else url.searchParams.set("api_key", tmdbKey);
-    let r;
-    try { r = await fetch(url, { headers }); } catch (e) { throw new TmdbError("network"); }
-    if (r.status === 401) throw new TmdbError("auth");
-    if (r.status === 429) throw new TmdbError("rate");
-    if (!r.ok) throw new TmdbError("http");
-    return r.json();
+    let res;
+    try { res = await sb.rpc("tmdb", { path, params: params || {} }); }
+    catch (e) { throw new TmdbError("network"); }
+    if (res.error) {
+      const m = res.error.message || "";
+      if (/status 401/.test(m)) throw new TmdbError("auth");
+      if (/status 429/.test(m)) throw new TmdbError("rate");
+      if (/key missing/.test(m)) throw new TmdbError("nokey");
+      if (/Failed to fetch|NetworkError/i.test(m)) throw new TmdbError("network");
+      throw new TmdbError("http");
+    }
+    return res.data || {};
   }
   function tmdbMsg(e) {
     switch (e && e.kind) {
-      case "nokey": return "Add your TMDB key first (Settings).";
-      case "auth": return "TMDB rejected the key. Update it in Settings.";
+      case "nokey": return "The TMDB key isn't set up on the server.";
+      case "auth": return "TMDB rejected the server's key.";
       case "rate": return "TMDB is busy. Try again in a few seconds.";
       case "network": return "Couldn't reach TMDB. Check your connection.";
       default: return "TMDB lookup failed. Try again.";
@@ -253,25 +254,6 @@
   }
 
   // ---------- data ----------
-  async function loadConfig() {
-    const { data } = await sb.from("app_config").select("value").eq("key", "tmdb_key").maybeSingle();
-    tmdbKey = (data && data.value) || "";
-    $("#keyBanner").hidden = !!tmdbKey;
-  }
-  async function saveKey(k, msgEl) {
-    k = String(k || "").trim();
-    msgEl.classList.remove("ok");
-    if (!k) { msgEl.textContent = "Paste the key first."; return false; }
-    const prev = tmdbKey; tmdbKey = k;
-    try { await tmdb("/configuration"); }
-    catch (e) { tmdbKey = prev; msgEl.textContent = e.kind === "auth" ? "TMDB didn't accept that key. Check you copied all of it." : tmdbMsg(e); return false; }
-    const { error } = await sb.from("app_config").upsert({ key: "tmdb_key", value: k });
-    if (error) { tmdbKey = prev; msgEl.textContent = dbErr(error); return false; }
-    msgEl.classList.add("ok"); msgEl.textContent = "Key saved.";
-    $("#keyBanner").hidden = true;
-    autoMatch();
-    return true;
-  }
   async function loadFilms() {
     const { data, error } = await sb.from("films").select("*").order("created_at", { ascending: false });
     if (error) { setStatus("Your list couldn't load. Reload the page to try again.", true); return; }
@@ -317,7 +299,7 @@
   // Films added without a TMDB match (e.g. carried over) get matched once.
   let matching = false;
   async function autoMatch() {
-    if (matching || !tmdbKey) return;
+    if (matching) return;
     matching = true;
     try {
       for (const f of films.filter((x) => !x.tmdb_id && !x.match_state)) {
@@ -325,7 +307,9 @@
         try {
           const q = f.name_en || f.name_ua;
           const res = await searchTitles(q);
-          const best = res.find((r) => f.year && Number(r.year) === f.year) || res[0];
+          const same = (r) => [f.name_en, f.name_ua].some((n) => n && (norm(r.title) === norm(n) || norm(r.original) === norm(n)));
+          const best = res.find((r) => same(r) && f.year && Number(r.year) === f.year)
+            || res.find((r) => f.year && Number(r.year) === f.year) || res.find(same) || res[0];
           if (!best || films.some((x) => x.tmdb_id === best.id && x.media_type === best.type)) throw new TmdbError("none");
           const d = await fetchDetails(best.type, best.id);
           await patchFilm(f.id, d);
@@ -353,7 +337,7 @@
     };
     const run = debounce(async () => {
       const q = input.value.trim();
-      if (q.length < 2 || !tmdbKey) { items = []; close(); return; }
+      if (q.length < 2) { items = []; close(); return; }
       const my = ++seq;
       try { const res = await searchTitles(q); if (my !== seq) return; items = res; active = -1; paint(res.length ? "" : "No matches on TMDB"); }
       catch (e) { if (my === seq) paint(tmdbMsg(e)); }
@@ -389,20 +373,17 @@
     } catch (e) { showAddMsg(tmdbMsg(e)); }
     finally { addBtn.disabled = false; addBtn.textContent = "Add film"; }
   }
-  async function addManual(q) {
-    const row = await insertFilm(isCyr(q) ? { name_ua: q, match_state: "failed" } : { name_en: q, match_state: "failed" });
-    if (row) { addInput.value = ""; if (tab !== "proposed") selectTab("proposed"); toast("Added without TMDB details. Use Edit to find it."); }
-  }
   $("#addForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const q = addInput.value.trim();
     if (!q) { showAddMsg("Type a title first."); return; }
-    if (!tmdbKey) { await addManual(q); return; }
     addBtn.disabled = true;
     try {
       const res = await searchTitles(q);
       addSuggest.close();
-      if (res[0]) await addFromResult(res[0]);
+      const exact = res.filter((r) => norm(r.title) === norm(q) || norm(r.original) === norm(q));
+      const best = exact.find((r) => r.type === "movie") || exact[0] || res[0];
+      if (best) await addFromResult(best);
       else showAddMsg(`No match on TMDB for “${q}”. Check the spelling, or try the other language.`);
     } catch (err) { showAddMsg(tmdbMsg(err)); }
     finally { addBtn.disabled = false; }
@@ -439,7 +420,7 @@
   });
   document.addEventListener("keydown", (e) => {
     if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('[data-act="desc"]')) { e.preventDefault(); e.target.click(); }
-    if (e.key === "Escape") { if (!$("#player").hidden) closePlayer(); else if (!$("#editor").hidden) closeEditor(); else if (!$("#settings").hidden) closeOverlay("#settings"); }
+    if (e.key === "Escape") { if (!$("#player").hidden) closePlayer(); else if (!$("#editor").hidden) closeEditor(); }
   });
 
   function openOverlay(sel) { $(sel).hidden = false; document.body.style.overflow = "hidden"; }
@@ -529,12 +510,6 @@
     films = films.filter((f) => f.id !== id); render(); toast("Deleted");
   });
 
-  // ---------- settings ----------
-  $("#settingsBtn").addEventListener("click", () => { $("#setKey").value = tmdbKey; $("#setMsg").textContent = ""; openOverlay("#settings"); });
-  $("#setCancel").addEventListener("click", () => closeOverlay("#settings"));
-  $("#settings").addEventListener("click", (e) => { if (e.target.id === "settings") closeOverlay("#settings"); });
-  $("#setForm").addEventListener("submit", async (e) => { e.preventDefault(); if (await saveKey($("#setKey").value, $("#setMsg"))) setTimeout(() => closeOverlay("#settings"), 700); });
-  $("#keyForm").addEventListener("submit", async (e) => { e.preventDefault(); if (await saveKey($("#keyInput").value, $("#keyMsg"))) $("#keyInput").value = ""; });
   $("#logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
 
   // ---------- auth ----------
@@ -573,7 +548,6 @@
     if (started) return;
     started = true;
     render();
-    await loadConfig();
     await loadFilms();
     subscribe();
     autoMatch();
