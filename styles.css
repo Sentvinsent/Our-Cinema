@@ -462,3 +462,7 @@ th.c-sel { padding-top: 10px; }
 /* clearer selected filter chip in both themes */
 .kindf button[aria-pressed="true"] { background: var(--line); color: var(--ink); font-weight: 600; box-shadow: none; }
 @media (min-width: 701px) { .add { max-width: 640px; } }
+
+/* ---- Tab counts: readable in every theme ---- */
+.tab .n { min-width: 22px; text-align: center; font-weight: 600; font-size: 12px; padding: 1px 7px; background: var(--line); color: var(--ink); }
+.tab[aria-selected=true] .n { background: var(--accent); color: var(--accent-ink); }
