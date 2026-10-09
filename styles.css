@@ -354,3 +354,36 @@ tbody tr.is-sel td { background: color-mix(in srgb, var(--accent) 9%, var(--surf
   .c-vote .seg .vb { padding: 4px 9px; min-height: 32px; }
   .row-tools { gap: 6px; }
 }
+
+/* ---- Filter: Усі / Фільми / Серіали ---- */
+.bar-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; min-width: 0; }
+.kindf { display: inline-grid; grid-template-columns: repeat(3, auto); padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-2); }
+.kindf button { appearance: none; border: 0; background: transparent; border-radius: 8px; padding: 6px 12px; font-weight: 500; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.kindf button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.kindf button[data-kind="movie"][aria-pressed="true"] { color: var(--movie); }
+.kindf button[data-kind="tv"][aria-pressed="true"] { color: var(--series); }
+@media (max-width: 700px) {
+  .bar-tools { display: grid; grid-template-columns: 1fr; }
+  .kindf { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .kindf button { padding: 9px 8px; font-size: 15px; }
+}
+
+/* ---- Show more ---- */
+.more { display: grid; justify-items: center; gap: 6px; padding-block: 4px 8px; }
+.more .btn { min-width: min(320px, 100%); padding-block: 11px; font-weight: 600; }
+.more-info { font-size: 12px; color: var(--muted); font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+/* ---- Motion: quick, quiet, and off when the device asks for reduced motion ---- */
+@media (prefers-reduced-motion: no-preference) {
+  .btn, .iconbtn, .vb, .trl, .tab, .kindf button, .watch, .linkbtn, .poster, .card, .bulk, tbody tr td, input, textarea {
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, opacity .15s ease, transform .12s ease;
+  }
+  .btn:active, .iconbtn:active, .vb:active, .trl:active, .tab:active, .kindf button:active, .watch:active { transform: scale(.97); }
+  .poster:hover img { transform: scale(1.03); }
+  .poster img { transition: transform .25s cubic-bezier(.2,.8,.2,1); }
+  .desc { transition: color .15s ease; }
+  .suggest:not([hidden]) { animation: oc-drop .16s cubic-bezier(.2,.8,.2,1); }
+  .formmsg:not(:empty), .hint:not([hidden]) { animation: oc-fade .18s ease-out; }
+  @keyframes oc-drop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  @keyframes oc-fade { from { opacity: 0; } to { opacity: 1; } }
+}

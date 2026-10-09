@@ -44,6 +44,11 @@
   const busy = new Set();
   const selected = new Set();
   let visibleIds = [];
+  const PAGE = 10;
+  let shown = PAGE, kind = "all";
+  try { const k = localStorage.getItem("oc-kind"); if (k === "movie" || k === "tv") kind = k; } catch (e) {}
+  const motionOK = () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const EASE = "cubic-bezier(.2,.8,.2,1)";
 
   try { const t = localStorage.getItem("oc-tab"); if (TABS.some((x) => x[0] === t)) tab = t; } catch (e) {}
   if (TABS.some((x) => "#" + x[0] === location.hash)) tab = location.hash.slice(1);
@@ -89,7 +94,12 @@
       t.append(b);
     }
     t.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), action ? 8000 : 4500);
+    if (motionOK()) t.animate([{ opacity: 0, transform: "translate(-50%, 10px)" }, { opacity: 1, transform: "translate(-50%, 0)" }], { duration: 180, easing: EASE });
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      if (!motionOK()) { t.hidden = true; return; }
+      t.animate([{ opacity: 1 }, { opacity: 0, transform: "translate(-50%, 6px)" }], { duration: 160, easing: "ease-in" }).finished.then(() => (t.hidden = true), () => (t.hidden = true));
+    }, action ? 8000 : 4500);
   }
   function setStatus(msg, err) {
     const s = $("#status"); s.textContent = msg || ""; s.hidden = !msg; s.classList.toggle("err", !!err);
@@ -238,7 +248,7 @@
     return `<button class="iconbtn sq del" data-act="delete" data-id="${f.id}" aria-label="Видалити: ${esc(titleOf(f))}" title="Видалити">${TRASH}</button>`;
   }
   function rowHTML(f) {
-    return `<tr${selected.has(f.id) ? ' class="is-sel"' : ""}>
+    return `<tr data-key="${f.id}"${selected.has(f.id) ? ' class="is-sel"' : ""}>
       <td class="c-sel">${selHTML(f, "t")}</td>
       <td class="c-poster">${posterHTML(f)}</td>
       <td class="c-name">${kindHTML(f)}<div class="title-en">${f.name_en ? esc(f.name_en) : '<span class="dim">—</span>'}</div>${metaHTML(f)}${fillHTML(f)}</td>
@@ -257,7 +267,7 @@
     const tr = [f.trailer_ua ? trailerHTML(f, "ua", "Трейлер укр.") : "", f.trailer_en ? trailerHTML(f, "en", "Трейлер англ.") : ""].join("");
     const main = f.name_ua || f.name_en || "Без назви";
     const second = f.name_ua && f.name_en && norm(f.name_ua) !== norm(f.name_en) ? f.name_en : "";
-    return `<article class="card${selected.has(f.id) ? " is-sel" : ""}${f.media_type === "tv" ? " is-tv" : ""}">
+    return `<article data-key="${f.id}" class="card${selected.has(f.id) ? " is-sel" : ""}${f.media_type === "tv" ? " is-tv" : ""}">
       <label class="card-sel">${selHTML(f, "c")}</label>
       <div class="card-poster">${posterHTML(f)}</div>
       <div class="card-head">
@@ -285,36 +295,83 @@
     </article>`;
   }
 
-  function render() {
+  const kindOK = (f) => kind === "all" || (kind === "tv" ? f.media_type === "tv" : f.media_type !== "tv");
+  // Remember where each visible item sits, so after re-rendering we can slide items into
+  // their new places (FLIP) and fade in only the ones that are new.
+  function snapshot() {
+    const pos = new Map();
+    document.querySelectorAll("[data-key]").forEach((el) => { if (el.offsetParent) pos.set(el.dataset.key + "|" + el.tagName, el.getBoundingClientRect().top); });
+    return pos;
+  }
+  function play(before) {
+    if (!motionOK() || !before) return;
+    let n = 0;
+    document.querySelectorAll("[data-key]").forEach((el) => {
+      if (!el.offsetParent) return;
+      const k = el.dataset.key + "|" + el.tagName, top = el.getBoundingClientRect().top;
+      if (before.has(k)) {
+        const dy = before.get(k) - top;
+        if (Math.abs(dy) > 1) el.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: 240, easing: EASE });
+      } else if (top < window.innerHeight + 200) {
+        el.animate([{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }],
+          { duration: 220, easing: EASE, delay: Math.min(n++ * 28, 220), fill: "backwards" });
+      }
+    });
+  }
+  // Fade an item out before it leaves the current list (delete, vote moves it to another tab…).
+  function animateOut(ids) {
+    if (!motionOK()) return Promise.resolve();
+    const els = [...document.querySelectorAll("[data-key]")].filter((el) => ids.includes(el.dataset.key) && el.offsetParent);
+    if (!els.length) return Promise.resolve();
+    return Promise.all(els.map((el) => el.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(.98)" }],
+      { duration: 160, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}))).then(() => {});
+  }
+
+  function render(animate = true) {
+    const before = animate && loaded ? snapshot() : null;
     const counts = Object.fromEntries(TABS.map(([k]) => [k, 0]));
-    for (const f of films) counts[tabOf(f)]++;
+    for (const f of films) if (kindOK(f)) counts[tabOf(f)]++;
     $("#tabs").innerHTML = TABS.map(([k, label]) =>
       `<button class="tab" role="tab" data-tab="${k}" aria-selected="${k === tab}"><span>${label}</span><span class="n">${counts[k]}</span></button>`).join("");
-    $("#stats").textContent = loaded ? `${films.length} ${plural(films.length, ["назва", "назви", "назв"])} · переглянуто ${counts.watched}` : "";
+    const watchedAll = films.filter((f) => f.watched).length;
+    $("#stats").textContent = loaded ? `${films.length} ${plural(films.length, ["назва", "назви", "назв"])} · переглянуто ${watchedAll}` : "";
+    document.querySelectorAll("#kindFilter [data-kind]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.kind === kind)));
     if (!loaded) return;
     setStatus("");
 
     const q = norm(query);
-    let list = films.filter((f) => tabOf(f) === tab);
+    let list = films.filter((f) => tabOf(f) === tab && kindOK(f));
     if (q) list = list.filter((f) => norm(f.name_en).includes(q) || norm(f.name_ua).includes(q));
     const t = (x) => (x ? Date.parse(x) || 0 : 0);
     list.sort((a, b) => tab === "watched" ? t(b.watched_at) - t(a.watched_at) : t(b.created_at) - t(a.created_at));
 
-    visibleIds = list.map((f) => f.id);
+    const page = list.slice(0, shown);
+    visibleIds = page.map((f) => f.id);
     for (const id of [...selected]) if (!visibleIds.includes(id)) selected.delete(id);
     renderBulk();
 
+    const left = list.length - page.length, more = $("#more");
+    more.hidden = left <= 0;
+    if (left > 0) $("#moreBtn").textContent = `Показати ще ${Math.min(PAGE, left)} · залишилось ${left}`;
+    $("#pageInfo").textContent = list.length > PAGE ? `Показано ${page.length} з ${list.length}` : "";
+
     const empty = $("#empty");
     if (!list.length) {
-      const [h, s] = q ? ["Нічого не знайдено", "У цьому списку немає назв, що відповідають пошуку."] : EMPTY[tab];
+      const what = kind === "tv" ? "серіалів" : kind === "movie" ? "фільмів" : "";
+      const [h, s] = q ? ["Нічого не знайдено", "У цьому списку немає назв, що відповідають пошуку."]
+        : what && films.some((f) => tabOf(f) === tab) ? ["Тут порожньо", `У цьому списку немає ${what}. Змініть фільтр «Усі / Фільми / Серіали».`]
+        : EMPTY[tab];
       empty.innerHTML = `<b>${esc(h)}</b>${esc(s)}`;
       empty.hidden = false; $("#tableWrap").hidden = true; $("#cards").hidden = true;
+      if (before && motionOK()) empty.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: EASE });
       return;
     }
     empty.hidden = true; $("#tableWrap").hidden = false; $("#cards").hidden = false;
-    $("#rows").innerHTML = list.map(rowHTML).join("");
-    $("#cards").innerHTML = list.map(cardHTML).join("");
+    $("#rows").innerHTML = page.map(rowHTML).join("");
+    $("#cards").innerHTML = page.map(cardHTML).join("");
+    play(before);
   }
+  function resetPage() { shown = PAGE; }
 
   // ---------- selection & delete (Gmail-style) ----------
   let bulkArmed = false;
@@ -341,6 +398,7 @@
     ids = ids.filter((id) => films.some((f) => f.id === id));
     if (!ids.length) return;
     const removed = films.filter((f) => ids.includes(f.id));
+    await animateOut(ids);
     films = films.filter((f) => !ids.includes(f.id));
     ids.forEach((id) => selected.delete(id));
     bulkArmed = false;
@@ -389,7 +447,13 @@
   async function patchFilm(id, patch) {
     const i = films.findIndex((f) => f.id === id);
     const prev = i >= 0 ? films[i] : null;
-    if (prev) { films[i] = { ...prev, ...patch }; render(); }
+    if (prev) {
+      const next = { ...prev, ...patch };
+      if (tabOf(prev) === tab && tabOf(next) !== tab) await animateOut([id]);
+      const k = films.findIndex((f) => f.id === id);
+      if (k >= 0) films[k] = next;
+      render();
+    }
     const { data, error } = await sb.from("films").update(patch).eq("id", id).select().maybeSingle();
     if (error || !data) {
       const j = films.findIndex((f) => f.id === id);
@@ -506,14 +570,28 @@
 
   // ---------- interactions ----------
   function selectTab(k) {
-    if (k !== tab) { selected.clear(); bulkArmed = false; }
+    if (k !== tab) { selected.clear(); bulkArmed = false; resetPage(); }
     tab = k;
     try { localStorage.setItem("oc-tab", k); } catch (e) {}
     try { history.replaceState(null, "", "#" + k); } catch (e) {}
     render();
   }
   $("#tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) selectTab(b.dataset.tab); });
-  $("#search").addEventListener("input", (e) => { query = e.target.value; render(); });
+  $("#search").addEventListener("input", (e) => { query = e.target.value; resetPage(); render(); });
+  $("#kindFilter").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-kind]"); if (!b || b.dataset.kind === kind) return;
+    kind = b.dataset.kind;
+    try { localStorage.setItem("oc-kind", kind); } catch (err) {}
+    selected.clear(); bulkArmed = false; resetPage(); render();
+  });
+  $("#moreBtn").addEventListener("click", () => {
+    const firstNew = shown;
+    shown += PAGE; render();
+    // move keyboard focus to the first newly shown item for screen-reader and keyboard users
+    const el = document.querySelectorAll(window.innerWidth > 900 ? "#rows tr" : "#cards .card")[firstNew];
+    const target = el && el.querySelector("input.sel");
+    if (target) target.focus({ preventScroll: true });
+  });
 
   document.addEventListener("click", (e) => {
     const el = e.target.closest("[data-act]");
@@ -522,7 +600,11 @@
     if (act === "desc") { const k = el.dataset.key; expanded.has(k) ? expanded.delete(k) : expanded.add(k); render(); }
     else if (act === "vote") {
       const f = films.find((x) => x.id === id); if (!f) return;
-      patchFilm(id, { [el.dataset.who]: f[el.dataset.who] === el.dataset.val ? "" : el.dataset.val });
+      const who = el.dataset.who;
+      patchFilm(id, { [who]: f[who] === el.dataset.val ? "" : el.dataset.val });
+      // small press feedback on the re-rendered switch (only if the film stays in this list)
+      if (motionOK()) requestAnimationFrame(() => document.querySelectorAll(`[data-act="vote"][data-id="${id}"][data-who="${who}"].on`)
+        .forEach((b) => b.animate([{ transform: "scale(.92)" }, { transform: "none" }], { duration: 180, easing: EASE })));
     }
     else if (act === "edit") openEditor(id);
     else if (act === "delete") deleteFilms([id]);
@@ -541,8 +623,20 @@
     if (e.key === "Escape") { if (!$("#player").hidden) closePlayer(); else if (!$("#editor").hidden) closeEditor(); else if (selected.size) { selected.clear(); bulkArmed = false; render(); } }
   });
 
-  function openOverlay(sel) { $(sel).hidden = false; document.body.style.overflow = "hidden"; }
-  function closeOverlay(sel) { $(sel).hidden = true; if ([...document.querySelectorAll(".overlay")].every((o) => o.hidden)) document.body.style.overflow = ""; }
+  function openOverlay(sel) {
+    const o = $(sel); o.hidden = false; document.body.style.overflow = "hidden";
+    if (motionOK()) {
+      o.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" });
+      const box = o.firstElementChild;
+      if (box) box.animate([{ opacity: 0, transform: "translateY(12px) scale(.985)" }, { opacity: 1, transform: "none" }], { duration: 200, easing: EASE });
+    }
+  }
+  function closeOverlay(sel) {
+    const o = $(sel);
+    const done = () => { o.hidden = true; if ([...document.querySelectorAll(".overlay")].every((x) => x.hidden)) document.body.style.overflow = ""; };
+    if (!motionOK() || o.hidden) { done(); return; }
+    o.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, easing: "ease-in" }).finished.then(done, done);
+  }
 
   // ---------- trailer player ----------
   function openPlayer(f, which) {
@@ -639,7 +733,8 @@
     hideAll(); $("#gate").hidden = false;
     if (msg != null) { const m = $("#loginMsg"); m.textContent = msg; m.classList.toggle("ok", !!ok); }
   }
-  function showApp() { hideAll(); $("#app").hidden = false; }
+  function fadeIn(el) { if (motionOK()) el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: "ease-out" }); }
+  function showApp() { const wasHidden = $("#app").hidden; hideAll(); $("#app").hidden = false; if (wasHidden) fadeIn($("#app")); }
   function showPwGate(first, email) {
     pwFirst = first;
     hideAll(); $("#pwGate").hidden = false;
