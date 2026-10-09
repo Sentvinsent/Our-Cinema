@@ -58,12 +58,19 @@
     <input type="search" class="search" id="search" placeholder="Search titles" aria-label="Search titles">
   </div>
 
+  <div class="bulk" id="bulk">
+    <label class="bulk-all"><input type="checkbox" id="selAll" aria-label="Select all films in this list"><span id="bulkCount">Select</span></label>
+    <button type="button" class="btn danger" id="bulkDelete" hidden>Delete</button>
+    <button type="button" class="linkbtn" id="bulkClear" hidden>Clear</button>
+  </div>
+
   <div class="status" id="status">Loading your list…</div>
 
   <div class="tablewrap" id="tableWrap" hidden>
     <table>
       <thead>
         <tr>
+          <th class="c-sel"><span class="sr">Select</span></th>
           <th class="c-poster">Poster</th>
           <th class="c-name">EN name</th>
           <th class="c-name">UA name</th>
@@ -74,7 +81,7 @@
           <th class="c-vote th-aleks">Aleks</th>
           <th class="c-vote th-alina">Alina</th>
           <th class="c-watch">Watched</th>
-          <th class="c-edit"><span class="sr">Edit</span></th>
+          <th class="c-edit"><span class="sr">Edit or delete</span></th>
         </tr>
       </thead>
       <tbody id="rows"></tbody>

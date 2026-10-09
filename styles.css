@@ -204,3 +204,27 @@ tbody tr:last-child td { border-bottom: 0; }
 
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 10px; font-size: 14px; max-width: calc(100% - 32px); z-index: 30; box-shadow: var(--shadow); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Selection & delete (Gmail-style) */
+.bulk { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+  padding: 8px 12px; border-radius: 12px; border: 1px solid transparent; background: var(--bg); min-height: 46px; }
+.bulk.active { background: var(--surface); border-color: var(--accent); box-shadow: var(--shadow); }
+.bulk-all { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--muted); user-select: none; }
+.bulk.active .bulk-all { color: var(--ink); }
+.bulk .btn { padding-block: 7px; }
+.bulk .btn.armed { background: var(--no); border-color: var(--no); color: #fff; }
+input.sel, #selAll { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.c-sel { width: 40px; }
+td.c-sel { padding-top: 16px; }
+tbody tr.is-sel td { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+.row-tools { display: flex; gap: 6px; }
+.iconbtn.del { display: inline-flex; align-items: center; justify-content: center; padding: 6px 8px; color: var(--muted); }
+.iconbtn.del svg { width: 15px; height: 15px; fill: currentColor; }
+.iconbtn.del:hover { color: var(--no); border-color: var(--no); }
+.c-edit { width: 104px; }
+.card { position: relative; }
+.card.is-sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+.card-sel { position: absolute; top: 8px; right: 8px; padding: 6px; display: inline-flex; cursor: pointer; }
+.card-head { padding-right: 30px; }
+.toast { display: flex; align-items: center; gap: 14px; }
+.toast-btn { appearance: none; background: none; border: 0; padding: 0; color: var(--accent); font-weight: 600; cursor: pointer; font-size: 14px; }

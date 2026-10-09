@@ -22,6 +22,8 @@
   let tab = "proposed", query = "", me = "";
   const expanded = new Set();
   const busy = new Set();
+  const selected = new Set();
+  let visibleIds = [];
 
   try { const t = localStorage.getItem("oc-tab"); if (TABS.some((x) => x[0] === t)) tab = t; } catch (e) {}
   if (TABS.some((x) => "#" + x[0] === location.hash)) tab = location.hash.slice(1);
@@ -57,9 +59,17 @@
   }
 
   let toastTimer;
-  function toast(msg) {
-    const t = $("#toast"); t.textContent = msg; t.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 4500);
+  function toast(msg, action) {
+    const t = $("#toast");
+    t.textContent = msg;
+    if (action) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "toast-btn"; b.textContent = action.label;
+      b.addEventListener("click", () => { t.hidden = true; action.run(); }, { once: true });
+      t.append(b);
+    }
+    t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), action ? 8000 : 4500);
   }
   function setStatus(msg, err) {
     const s = $("#status"); s.textContent = msg || ""; s.hidden = !msg; s.classList.toggle("err", !!err);
@@ -187,8 +197,17 @@
   function watchHTML(f, prefix) {
     return `<label class="watch"><input type="checkbox" id="${prefix}-w-${f.id}" data-act="watched" data-id="${f.id}" ${f.watched ? "checked" : ""}><span>Watched</span></label>`;
   }
+  const TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg>';
+  function selHTML(f, prefix) {
+    const on = selected.has(f.id);
+    return `<input type="checkbox" class="sel" id="${prefix}-s-${f.id}" data-act="select" data-id="${f.id}" ${on ? "checked" : ""} aria-label="Select ${esc(titleOf(f))}">`;
+  }
+  function delBtnHTML(f) {
+    return `<button class="iconbtn del" data-act="delete" data-id="${f.id}" aria-label="Delete ${esc(titleOf(f))}" title="Delete">${TRASH}</button>`;
+  }
   function rowHTML(f) {
-    return `<tr>
+    return `<tr${selected.has(f.id) ? ' class="is-sel"' : ""}>
+      <td class="c-sel">${selHTML(f, "t")}</td>
       <td class="c-poster">${posterHTML(f)}</td>
       <td class="c-name"><div class="title-en">${f.name_en ? esc(f.name_en) : '<span class="dim">—</span>'}</div>${metaHTML(f)}${fillHTML(f)}</td>
       <td class="c-name"><div class="title-ua" lang="uk">${f.name_ua ? esc(f.name_ua) : '<span class="dim">—</span>'}</div></td>
@@ -199,12 +218,13 @@
       <td class="c-vote">${voteHTML(f, "aleks", false)}</td>
       <td class="c-vote">${voteHTML(f, "alina", false)}</td>
       <td class="c-watch">${watchHTML(f, "t")}</td>
-      <td class="c-edit"><button class="iconbtn" data-act="edit" data-id="${f.id}">Edit</button></td>
+      <td class="c-edit"><div class="row-tools"><button class="iconbtn" data-act="edit" data-id="${f.id}">Edit</button>${delBtnHTML(f)}</div></td>
     </tr>`;
   }
   function cardHTML(f) {
     const tr = [f.trailer_en ? trailerHTML(f, "en", "EN trailer") : "", f.trailer_ua ? trailerHTML(f, "ua", "UA трейлер") : ""].join("");
-    return `<article class="card">
+    return `<article class="card${selected.has(f.id) ? " is-sel" : ""}">
+      <label class="card-sel">${selHTML(f, "c")}</label>
       <div>${posterHTML(f)}</div>
       <div class="card-head">
         <div class="title-en">${esc(f.name_en || f.name_ua || "Untitled")}</div>
@@ -222,6 +242,7 @@
         ${watchHTML(f, "c")}
         <span class="spacer"></span>
         <button class="iconbtn" data-act="edit" data-id="${f.id}">Edit</button>
+        ${delBtnHTML(f)}
       </div>
     </article>`;
   }
@@ -241,6 +262,10 @@
     const t = (x) => (x ? Date.parse(x) || 0 : 0);
     list.sort((a, b) => tab === "watched" ? t(b.watched_at) - t(a.watched_at) : t(b.created_at) - t(a.created_at));
 
+    visibleIds = list.map((f) => f.id);
+    for (const id of [...selected]) if (!visibleIds.includes(id)) selected.delete(id);
+    renderBulk();
+
     const empty = $("#empty");
     if (!list.length) {
       const [h, s] = q ? ["No matches", "No titles in this list match your search."] : EMPTY[tab];
@@ -252,6 +277,57 @@
     $("#rows").innerHTML = list.map(rowHTML).join("");
     $("#cards").innerHTML = list.map(cardHTML).join("");
   }
+
+  // ---------- selection & delete (Gmail-style) ----------
+  let bulkArmed = false;
+  function renderBulk() {
+    const n = selected.size, total = visibleIds.length;
+    const all = $("#selAll");
+    all.checked = n > 0 && n === total;
+    all.indeterminate = n > 0 && n < total;
+    all.disabled = total === 0;
+    $("#bulkCount").textContent = n ? `${n} selected` : "Select";
+    $("#bulkDelete").hidden = n === 0;
+    $("#bulkClear").hidden = n === 0;
+    if (!n) bulkArmed = false;
+    $("#bulkDelete").textContent = bulkArmed ? `Confirm: delete ${n}` : `Delete ${n === 1 ? "film" : n + " films"}`;
+    $("#bulkDelete").classList.toggle("armed", bulkArmed);
+    $("#bulk").classList.toggle("active", n > 0);
+  }
+  function toggleSelect(id, on) {
+    if (on) selected.add(id); else selected.delete(id);
+    bulkArmed = false;
+    render();
+  }
+  async function deleteFilms(ids) {
+    ids = ids.filter((id) => films.some((f) => f.id === id));
+    if (!ids.length) return;
+    const removed = films.filter((f) => ids.includes(f.id));
+    films = films.filter((f) => !ids.includes(f.id));
+    ids.forEach((id) => selected.delete(id));
+    bulkArmed = false;
+    render();
+    const { error } = await sb.from("films").delete().in("id", ids);
+    if (error) { films = films.concat(removed); render(); toast(dbErr(error)); return; }
+    const label = removed.length === 1 ? `Deleted “${titleOf(removed[0])}”` : `Deleted ${removed.length} films`;
+    toast(label, { label: "Undo", run: () => restoreFilms(removed) });
+  }
+  async function restoreFilms(rows) {
+    const { data, error } = await sb.from("films").insert(rows.map((r) => ({ ...r }))).select();
+    if (error) { toast(dbErr(error)); return; }
+    for (const r of data || []) if (!films.some((f) => f.id === r.id)) films.push(r);
+    render();
+    toast(rows.length === 1 ? "Restored" : `Restored ${rows.length} films`);
+  }
+  $("#selAll").addEventListener("change", (e) => {
+    if (e.target.checked) visibleIds.forEach((id) => selected.add(id)); else selected.clear();
+    bulkArmed = false; render();
+  });
+  $("#bulkClear").addEventListener("click", () => { selected.clear(); bulkArmed = false; render(); });
+  $("#bulkDelete").addEventListener("click", () => {
+    if (!bulkArmed) { bulkArmed = true; renderBulk(); return; }
+    deleteFilms([...selected]);
+  });
 
   // ---------- data ----------
   async function loadFilms() {
@@ -391,6 +467,7 @@
 
   // ---------- interactions ----------
   function selectTab(k) {
+    if (k !== tab) { selected.clear(); bulkArmed = false; }
     tab = k;
     try { localStorage.setItem("oc-tab", k); } catch (e) {}
     try { history.replaceState(null, "", "#" + k); } catch (e) {}
@@ -409,6 +486,7 @@
       patchFilm(id, { [el.dataset.who]: f[el.dataset.who] === el.dataset.val ? "" : el.dataset.val });
     }
     else if (act === "edit") openEditor(id);
+    else if (act === "delete") deleteFilms([id]);
     else if (act === "play") {
       const f = films.find((x) => x.id === id); if (!f) return;
       openPlayer(f, el.dataset.which);
@@ -416,11 +494,12 @@
   });
   document.addEventListener("change", (e) => {
     const el = e.target;
+    if (el.dataset && el.dataset.act === "select") { toggleSelect(el.dataset.id, el.checked); return; }
     if (el.dataset && el.dataset.act === "watched") patchFilm(el.dataset.id, { watched: el.checked, watched_at: el.checked ? new Date().toISOString() : null });
   });
   document.addEventListener("keydown", (e) => {
     if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('[data-act="desc"]')) { e.preventDefault(); e.target.click(); }
-    if (e.key === "Escape") { if (!$("#player").hidden) closePlayer(); else if (!$("#editor").hidden) closeEditor(); }
+    if (e.key === "Escape") { if (!$("#player").hidden) closePlayer(); else if (!$("#editor").hidden) closeEditor(); else if (selected.size) { selected.clear(); bulkArmed = false; render(); } }
   });
 
   function openOverlay(sel) { $(sel).hidden = false; document.body.style.overflow = "hidden"; }
@@ -430,7 +509,7 @@
   function openPlayer(f, which) {
     const url = which === "en" ? f.trailer_en : f.trailer_ua;
     const id = ytId(url);
-    if (!id) { window.open(url, "_blank", "noopener"); return; }
+    if (!id) { if (/^https?:\/\//i.test(url)) window.open(url, "_blank", "noopener"); return; }
     $("#playerTitle").textContent = `${titleOf(f)} · ${which === "en" ? "English trailer" : "Український трейлер"}`;
     $("#playerYt").href = url;
     $("#playerFrame").innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0" title="Trailer" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
@@ -503,11 +582,8 @@
     if (await patchFilm(id, patch)) toast("Saved");
   });
   $("#edDelete").addEventListener("click", async () => {
-    if (!delArmed) { delArmed = true; $("#edDelete").textContent = "Tap again to delete"; return; }
     const id = edId; closeEditor();
-    const { error } = await sb.from("films").delete().eq("id", id);
-    if (error) { toast(dbErr(error)); return; }
-    films = films.filter((f) => f.id !== id); render(); toast("Deleted");
+    deleteFilms([id]);
   });
 
   $("#logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
