@@ -511,7 +511,7 @@
     const id = ytId(url);
     if (!id) { if (/^https?:\/\//i.test(url)) window.open(url, "_blank", "noopener"); return; }
     $("#playerTitle").textContent = `${titleOf(f)} · ${which === "en" ? "English trailer" : "Український трейлер"}`;
-    $("#playerYt").href = url;
+    $("#playerYt").href = "https://www.youtube.com/watch?v=" + id;
     $("#playerFrame").innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0" title="Trailer" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
     openOverlay("#player");
   }
