@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Наше кіно</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://yzkqhbueyqrtttjkvrhw.supabase.co wss://yzkqhbueyqrtttjkvrhw.supabase.co; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23B8650F'/%3E%3Cpath d='M12 9v14l11-7z' fill='white'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Unbounded:wght@500;700&display=swap">
+  <link rel="stylesheet" href="styles.css?v=202610092337">
+  <link rel="stylesheet" href="glass.css?v=202610092340">
+</head>
+<body>
+
+<!-- Sign in -->
+<main class="gate" id="gate" hidden>
+  <form class="gate-card" id="loginForm" autocomplete="on">
+    <div class="eyebrow">Квиток на двох</div>
+    <h1>Наше кіно</h1>
+    <p class="sub">Приватний список Алекса й Аліни.</p>
+    <label class="field"><span class="label">Електронна пошта</span><input type="email" id="loginEmail" name="email" autocomplete="username" required placeholder="ви@example.com"></label>
+    <label class="field"><span class="label">Пароль</span><input type="password" id="loginPassword" name="password" autocomplete="current-password"></label>
+    <div class="hint" id="loginHint" hidden>Увійти можуть лише Алекс і Аліна.</div>
+    <button class="btn primary" type="submit" id="loginBtn" disabled>Увійти</button>
+    <div class="formmsg" id="loginMsg" role="status"></div>
+    <div class="gate-alt">
+      <span>Уперше тут або забули пароль?</span>
+      <button type="button" class="linkbtn" id="linkBtn" disabled>Надіслати посилання на пошту</button>
+    </div>
+  </form>
+</main>
+
+<!-- Set or change password -->
+<main class="gate" id="pwGate" hidden>
+  <form class="gate-card" id="pwForm" autocomplete="on">
+    <div class="eyebrow">Квиток на двох</div>
+    <h1 id="pwTitle">Створіть пароль</h1>
+    <p class="sub" id="pwSub">Надалі ви входитимете з електронною поштою і цим паролем.</p>
+    <input type="email" id="pwUser" name="email" autocomplete="username" class="sr" tabindex="-1" aria-hidden="true" readonly>
+    <label class="field"><span class="label">Новий пароль</span><input type="password" id="pwNew" name="new-password" autocomplete="new-password" minlength="10" required></label>
+    <label class="field"><span class="label">Повторіть пароль</span><input type="password" id="pwRepeat" autocomplete="new-password" minlength="10" required></label>
+    <div class="hint">Щонайменше 10 символів. Менеджер паролів може зберегти його для вас.</div>
+    <button class="btn primary" type="submit" id="pwSave">Зберегти пароль</button>
+    <div class="formmsg" id="pwMsg" role="status"></div>
+    <div class="gate-alt"><button type="button" class="linkbtn" id="pwCancel" hidden>Скасувати</button><button type="button" class="linkbtn" id="pwSignOut">Вийти</button></div>
+  </form>
+</main>
+
+<!-- App -->
+<div class="wrap" id="app" hidden>
+  <header class="appbar" id="appbar">
+    <div class="appbar-row">
+      <h1 class="brand">Наше кіно</h1>
+      <div class="acct">
+        <button type="button" class="avatar" id="acctBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="acctMenu" aria-label="Обліковий запис"><span id="avatarLetter">А</span></button>
+        <div class="menu" id="acctMenu" role="menu" hidden>
+          <div class="menu-who" id="whoName"></div>
+          <div class="menu-stats" id="stats"></div>
+          <button type="button" role="menuitem" id="changePwBtn">Змінити пароль</button>
+          <button type="button" role="menuitem" id="logoutBtn">Вийти</button>
+        </div>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Списки"></nav>
+  </header>
+
+  <form class="add" id="addForm" autocomplete="off">
+    <div class="suggest-host addfield">
+      <input type="text" id="addInput" placeholder="Додати фільм або серіал…" aria-label="Додати фільм або серіал (назва українською або англійською)" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggest">
+      <button class="addbtn" type="submit" id="addBtn" aria-label="Додати"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg></button>
+      <ul class="suggest" id="suggest" role="listbox" hidden></ul>
+    </div>
+    <div class="formmsg" id="addMsg" hidden></div>
+  </form>
+
+  <div class="tools" id="tools">
+    <div class="kindf" id="kindFilter" role="group" aria-label="Показати">
+      <button type="button" data-kind="all" aria-pressed="true">Усі</button>
+      <button type="button" data-kind="movie" aria-pressed="false">Фільми</button>
+      <button type="button" data-kind="tv" aria-pressed="false">Серіали</button>
+    </div>
+    <div class="searchbox" id="searchBox">
+      <button type="button" class="iconbtn sq search-open" id="searchOpen" aria-label="Пошук за назвою" aria-expanded="false" aria-controls="search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3a7 7 0 0 1 5.6 11.2l4.6 4.6-1.4 1.4-4.6-4.6A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg></button>
+      <input type="search" class="search" id="search" placeholder="Пошук за назвою" aria-label="Пошук за назвою">
+      <button type="button" class="iconbtn sq search-close" id="searchClose" aria-label="Закрити пошук"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6 10.6 12 5 6.4z"/></svg></button>
+    </div>
+  </div>
+
+  <div class="status" id="status">Завантажуємо список…</div>
+
+  <div class="tablewrap" id="tableWrap" hidden>
+    <table>
+      <thead>
+        <tr>
+          <th class="c-sel"><input type="checkbox" class="sel" id="selAllHead" aria-label="Вибрати всі показані"></th>
+          <th class="c-poster">Постер</th>
+          <th class="c-name">Назва (англ.)</th>
+          <th class="c-name">Назва (укр.)</th>
+          <th class="c-desc">Опис (англ.)</th>
+          <th class="c-desc">Опис (укр.)</th>
+          <th class="c-tr">Трейлер (англ.)</th>
+          <th class="c-tr">Трейлер (укр.)</th>
+          <th class="c-vote th-aleks">Алекс</th>
+          <th class="c-vote th-alina">Аліна</th>
+          <th class="c-watch">Переглянуто</th>
+          <th class="c-edit"><span class="sr">Редагувати або видалити</span></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <div class="cards" id="cards" hidden></div>
+  <div class="empty" id="empty" hidden></div>
+  <div class="more" id="more" hidden>
+    <button type="button" class="btn" id="moreBtn">Показати ще</button>
+    <span class="more-info" id="pageInfo"></span>
+  </div>
+  <footer class="credit">Дані та зображення фільмів — TMDB. <span lang="en">This product uses the TMDB API but is not endorsed or certified by TMDB.</span></footer>
+</div>
+
+<!-- Editor -->
+<div class="overlay" id="editor" hidden>
+  <form class="sheet" id="edForm" autocomplete="off" role="dialog" aria-modal="true" aria-labelledby="edTitle">
+    <h2 id="edTitle">Редагування</h2>
+    <div class="field suggest-host">
+      <label for="edMatch"><span class="label">Не той фільм? Знайдіть правильний на TMDB</span></label>
+      <input type="text" id="edMatch" placeholder="Пошук на TMDB">
+      <ul class="suggest" id="edSuggest" role="listbox" hidden></ul>
+    </div>
+    <div class="grid2">
+      <label class="field"><span class="label">Назва (англ.)</span><input type="text" id="edEn" lang="en"></label>
+      <label class="field"><span class="label">Назва (укр.)</span><input type="text" id="edUa" lang="uk"></label>
+    </div>
+    <div class="grid3">
+      <label class="field"><span class="label">Рік</span><input type="number" id="edYear" min="1880" max="2100" inputmode="numeric"></label>
+      <label class="field"><span class="label">Хвилин</span><input type="number" id="edRuntime" min="1" max="999" inputmode="numeric"></label>
+      <label class="field"><span class="label">Жанри</span><input type="text" id="edGenres" placeholder="Драма, Комедія"></label>
+    </div>
+    <div class="grid2">
+      <label class="field"><span class="label">Опис (англ.)</span><textarea id="edDescEn" lang="en"></textarea></label>
+      <label class="field"><span class="label">Опис (укр.)</span><textarea id="edDescUa" lang="uk"></textarea></label>
+    </div>
+    <div class="grid2">
+      <label class="field"><span class="label">Трейлер англ. (посилання YouTube)</span><input type="url" id="edTrEn" placeholder="https://www.youtube.com/watch?v=…"></label>
+      <label class="field"><span class="label">Трейлер укр. (посилання YouTube)</span><input type="url" id="edTrUa" placeholder="https://www.youtube.com/watch?v=…"></label>
+    </div>
+    <div class="posterbox">
+      <div id="edPosterPrev"></div>
+      <label class="field"><span class="label">Посилання на постер</span><input type="text" id="edPoster" placeholder="https://… або залиште як є"></label>
+    </div>
+    <div class="formmsg" id="edMsg"></div>
+    <div class="sheet-actions">
+      <button type="button" class="btn danger" id="edDelete">Видалити</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="edCancel">Скасувати</button>
+      <button type="submit" class="btn primary" id="edSave">Зберегти</button>
+    </div>
+  </form>
+</div>
+
+<!-- Trailer player -->
+<div class="overlay player" id="player" hidden>
+  <div class="player-box" role="dialog" aria-modal="true" aria-label="Трейлер">
+    <div class="player-head"><span id="playerTitle"></span><a id="playerYt" target="_blank" rel="noopener noreferrer">Відкрити на YouTube</a><button class="btn" type="button" id="playerClose">Закрити</button></div>
+    <div class="player-frame" id="playerFrame"></div>
+  </div>
+</div>
+
+<div class="bulk" id="bulk" hidden>
+  <label class="bulk-all"><input type="checkbox" id="selAll" aria-label="Вибрати всі показані"><span id="bulkCount">Вибрано: 0</span></label>
+  <button type="button" class="linkbtn" id="bulkClear">Зняти вибір</button>
+  <button type="button" class="btn danger" id="bulkDelete">Видалити</button>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
+<script src="config.js?v=202610092337"></script>
+<script src="app.js?v=202610092337"></script>
+</body>
+</html>
