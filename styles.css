@@ -233,3 +233,66 @@ tbody tr.is-sel td { background: color-mix(in srgb, var(--accent) 9%, var(--surf
 .gate-alt { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; font-size: 13px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 12px; }
 .gate-alt .linkbtn { font-size: 13px; }
 .linkbtn:disabled { color: var(--muted); text-decoration: none; cursor: default; opacity: .8; }
+
+/* Mobile fixes */
+/* Grid items default to min-width:auto, so a wide child (the tab strip) stretched the
+   whole page past the screen. Pin the column to the viewport and let children shrink. */
+.wrap { grid-template-columns: minmax(0, 1fr); }
+.wrap > *, .bar > *, .add-row > *, .top > * { min-width: 0; }
+.top > div:first-child { max-width: 100%; }
+.sub { overflow-wrap: anywhere; }
+/* Visually hidden helper field must not take layout width (inputs have width:100% elsewhere). */
+.sr, input.sr { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; border: 0 !important; margin: -1px !important; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.card-sel { z-index: 1; }
+
+@media (max-width: 700px) {
+  /* 16px stops iOS Safari zooming in when a field is focused */
+  input[type=text], input[type=search], input[type=number], input[type=email], input[type=url], input[type=password], textarea { font-size: 16px; }
+  .wrap { gap: 14px; padding-block: 14px 40px; }
+  h1 { font-size: 30px; }
+  .top { align-items: flex-start; }
+  .who { justify-items: start; }
+  .who-row { flex-wrap: wrap; gap: 6px 14px; }
+  .add { padding: 12px; }
+  .bulk { padding: 6px 10px; }
+  /* bigger tap targets */
+  .vb { padding: 9px 13px; min-height: 40px; }
+  .iconbtn { min-height: 40px; padding: 8px 12px; }
+  .iconbtn.del { min-width: 40px; }
+  .trl { padding: 9px 12px; min-height: 40px; }
+  .watch { min-height: 40px; }
+  .card { padding: 12px; gap: 10px 12px; grid-template-columns: 76px minmax(0, 1fr); }
+  .card-actions { gap: 10px; }
+  .card-actions .vote { flex: 1 1 calc(50% - 10px); min-width: 0; }
+  .card-actions .vote-name { min-width: 3.3em; }
+  .card-actions .watch { flex: 1 1 auto; }
+  .card-actions .spacer { display: none; }
+  .meta { overflow-wrap: anywhere; }
+  .sheet { padding: 14px; }
+  .overlay { padding: 12px; padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
+  .gate { padding: 16px; align-items: start; padding-top: calc(32px + env(safe-area-inset-top, 0px)); }
+  .gate-card { padding: 18px; }
+  .player-head { color: #fff; }
+}
+
+/* Desktop table: fit on 1280px+ laptops without clipping the last column */
+@media (min-width: 901px) {
+  table { min-width: 0; table-layout: auto; }
+  th, td { padding: 10px 8px; }
+  th:first-child, td:first-child { padding-left: 14px; }
+  th:last-child, td:last-child { padding-right: 14px; }
+  .c-sel { width: 28px; }
+  .c-poster { width: 64px; }
+  .c-name { width: 124px; }
+  .c-desc { width: auto; min-width: 160px; }
+  .c-desc .desc { font-size: 13px; -webkit-line-clamp: 5; }
+  .c-tr { width: 92px; }
+  .c-vote { width: 96px; }
+  .c-vote .vote { flex-wrap: nowrap; }
+  .c-vote .vb { padding: 5px 8px; }
+  .c-watch { width: 56px; text-align: center; }
+  .c-watch .watch span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .c-edit { width: 88px; }
+  .row-tools { flex-wrap: nowrap; }
+  .trl { padding: 5px 8px; }
+}
