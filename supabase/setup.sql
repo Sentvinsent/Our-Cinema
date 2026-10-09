@@ -8,6 +8,7 @@ create or replace function public.member_name()
 returns text
 language sql
 stable
+set search_path = ''
 as $$
   select case lower(coalesce(auth.jwt() ->> 'email', ''))
     when 'aleks@example.com' then 'Aleks'
@@ -20,6 +21,7 @@ create or replace function public.is_member()
 returns boolean
 language sql
 stable
+set search_path = ''
 as $$
   select public.member_name() is not null;
 $$;

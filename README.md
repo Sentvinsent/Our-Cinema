@@ -33,3 +33,11 @@ A private, shared watchlist for Aleks and Alina.
 4. Enable GitHub Pages for this repository (branch `main`, root folder).
 
 This product uses the TMDB API but is not endorsed or certified by TMDB.
+
+## Security
+- Only the two member emails can read or change the list (row-level security on every table).
+- The TMDB key is in `app_secrets`, which has RLS on, no policies and no grants, so no browser can read it.
+  `tmdb()` is the only way in: it checks membership, allows only TMDB search and details paths,
+  and keeps a fixed search path.
+- The page sends a Content Security Policy, and the Supabase library is pinned with an integrity hash.
+- No secrets are in this repository. The anon key in `config.js` is public by design.
