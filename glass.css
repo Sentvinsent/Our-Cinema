@@ -48,7 +48,7 @@ body::before {
     radial-gradient(50vmax 40vmax at 90% 100%, rgba(160, 175, 175, .08), transparent 65%),
     linear-gradient(165deg, #1A2122 0%, #101415 40%, #0A0B0C 75%, #070808 100%);
 }
-.card, .tablewrap, .gate-card, .sheet, .menu, .suggest, .empty {
+.card, .tablewrap, .gate-card, .sheet, .menu, .suggest, .empty, .player-box {
   background: linear-gradient(160deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .025) 60%);
   border: 1px solid var(--glass-rim);
   box-shadow: var(--glass-hi), var(--shadow);
@@ -58,7 +58,8 @@ body::before {
 .appbar { background: transparent; border-bottom-color: transparent; }
 .appbar.stuck { background: rgba(12, 14, 15, .92); border-bottom-color: var(--line); box-shadow: none; }
 .menu, .suggest { background: rgba(22, 24, 25, .94); border-radius: 14px; }
-.sheet { background: rgba(18, 20, 21, .92); }
+.sheet, .player-box { background: rgba(18, 20, 21, .94); }
+.player-x { border-radius: 10px; }
 .toast { background: rgba(26, 28, 29, .95); color: var(--ink); border: 1px solid var(--glass-rim); border-radius: 12px; }
 .bulk { background: #141617; border: 1px solid rgba(92, 229, 200, .45); border-radius: 16px; box-shadow: var(--shadow); }
 .overlay { background: var(--scrim); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }

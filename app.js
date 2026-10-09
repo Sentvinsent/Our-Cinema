@@ -651,13 +651,23 @@
     const url = which === "en" ? f.trailer_en : f.trailer_ua;
     const id = ytId(url);
     if (!id) { if (/^https?:\/\//i.test(url)) window.open(url, "_blank", "noopener"); return; }
-    $("#playerTitle").textContent = `${titleOf(f)} · ${which === "en" ? "англійський трейлер" : "український трейлер"}`;
-    $("#playerYt").href = "https://www.youtube.com/watch?v=" + id;
+    $("#playerTitle").textContent = titleOf(f);
+    $("#playerSub").textContent = (which === "en" ? "Англійський трейлер" : "Український трейлер") + (f.year ? " · " + f.year : "");
+    // Android: an intent link opens the YouTube app, falling back to the web page if the app isn't installed.
+    // iPhone: the normal https link opens the app through universal links.
+    const web = "https://www.youtube.com/watch?v=" + id;
+    const yt = $("#playerYt");
+    if (/Android/i.test(navigator.userAgent)) {
+      yt.href = `intent://www.youtube.com/watch?v=${id}#Intent;scheme=https;package=com.google.android.youtube;S.browser_fallback_url=${encodeURIComponent(web)};end`;
+      yt.removeAttribute("target");
+    } else { yt.href = web; yt.target = "_blank"; }
+    $("#playerFrame").style.backgroundImage = `url("https://i.ytimg.com/vi/${id}/hqdefault.jpg")`;
     $("#playerFrame").innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0" title="Трейлер" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
     openOverlay("#player");
   }
-  function closePlayer() { $("#playerFrame").innerHTML = ""; closeOverlay("#player"); }
+  function closePlayer() { $("#playerFrame").innerHTML = ""; $("#playerFrame").style.backgroundImage = ""; closeOverlay("#player"); }
   $("#playerClose").addEventListener("click", closePlayer);
+  $("#playerYt").addEventListener("click", () => setTimeout(closePlayer, 300)); // stop the embedded copy once YouTube opens
   $("#player").addEventListener("click", (e) => { if (e.target.id === "player") closePlayer(); });
 
   // ---------- editor ----------
