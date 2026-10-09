@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Our Cinema</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23B8650F'/%3E%3Cpath d='M12 9v14l11-7z' fill='white'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Unbounded:wght@500;700&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Login -->
+<main class="gate" id="gate" hidden>
+  <form class="gate-card" id="loginForm" autocomplete="on">
+    <div class="eyebrow">Admit two · Наше кіно</div>
+    <h1>Our Cinema</h1>
+    <p class="sub">Private list for Aleks and Alina. Enter your email and we'll send you a sign-in link.</p>
+    <label class="field"><span>Email</span><input type="email" id="loginEmail" autocomplete="email" required placeholder="you@example.com"></label>
+    <button class="btn primary" type="submit" id="loginBtn">Send sign-in link</button>
+    <div class="formmsg" id="loginMsg" role="status"></div>
+  </form>
+</main>
+
+<!-- App -->
+<div class="wrap" id="app" hidden>
+  <header class="top">
+    <div>
+      <div class="eyebrow">Admit two · Наше кіно</div>
+      <h1>Our Cinema</h1>
+      <div class="sub">What <span class="a">Aleks</span> and <span class="b">Alina</span> want to watch, have agreed on, and have seen.</div>
+    </div>
+    <div class="who">
+      <div class="stats" id="stats"></div>
+      <div class="who-row"><span id="whoName"></span><button class="linkbtn" id="settingsBtn" type="button">Settings</button><button class="linkbtn" id="logoutBtn" type="button">Sign out</button></div>
+    </div>
+  </header>
+
+  <div class="banner" id="keyBanner" hidden>
+    <div><b>Connect TMDB to fill in films automatically.</b> Paste your TMDB API key (v3 key or v4 read access token). It's saved in your private database, not in the site's code.</div>
+    <form class="banner-form" id="keyForm" autocomplete="off">
+      <input type="password" id="keyInput" placeholder="TMDB API key" aria-label="TMDB API key">
+      <button class="btn primary" type="submit">Save key</button>
+    </form>
+    <div class="formmsg" id="keyMsg"></div>
+  </div>
+
+  <form class="add" id="addForm" autocomplete="off">
+    <div class="add-row">
+      <div class="field suggest-host">
+        <label for="addInput"><span class="label">English or Ukrainian title</span></label>
+        <input type="text" id="addInput" placeholder="e.g. Past Lives / Минулі життя" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggest">
+        <ul class="suggest" id="suggest" role="listbox" hidden></ul>
+      </div>
+      <button class="btn primary" type="submit" id="addBtn">Add film</button>
+    </div>
+    <div class="hint" id="addHint">Pick a match from the list, or press Add for the top match. Poster, trailers and descriptions in both languages come from TMDB.</div>
+    <div class="formmsg" id="addMsg" hidden></div>
+  </form>
+
+  <div class="bar">
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Lists"></nav>
+    <input type="search" class="search" id="search" placeholder="Search titles" aria-label="Search titles">
+  </div>
+
+  <div class="status" id="status">Loading your list…</div>
+
+  <div class="tablewrap" id="tableWrap" hidden>
+    <table>
+      <thead>
+        <tr>
+          <th class="c-poster">Poster</th>
+          <th class="c-name">EN name</th>
+          <th class="c-name">UA name</th>
+          <th class="c-desc">Description EN</th>
+          <th class="c-desc">Опис UA</th>
+          <th class="c-tr">EN trailer</th>
+          <th class="c-tr">UA trailer</th>
+          <th class="c-vote th-aleks">Aleks</th>
+          <th class="c-vote th-alina">Alina</th>
+          <th class="c-watch">Watched</th>
+          <th class="c-edit"><span class="sr">Edit</span></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <div class="cards" id="cards" hidden></div>
+  <div class="empty" id="empty" hidden></div>
+  <footer class="credit">Film data and images from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</footer>
+</div>
+
+<!-- Editor -->
+<div class="overlay" id="editor" hidden>
+  <form class="sheet" id="edForm" autocomplete="off" role="dialog" aria-modal="true" aria-labelledby="edTitle">
+    <h2 id="edTitle">Edit film</h2>
+    <div class="field suggest-host">
+      <label for="edMatch"><span class="label">Wrong film? Find the right one on TMDB</span></label>
+      <input type="text" id="edMatch" placeholder="Search TMDB">
+      <ul class="suggest" id="edSuggest" role="listbox" hidden></ul>
+    </div>
+    <div class="grid2">
+      <label class="field"><span class="label">EN name</span><input type="text" id="edEn"></label>
+      <label class="field"><span class="label">UA name</span><input type="text" id="edUa" lang="uk"></label>
+    </div>
+    <div class="grid3">
+      <label class="field"><span class="label">Year</span><input type="number" id="edYear" min="1880" max="2100" inputmode="numeric"></label>
+      <label class="field"><span class="label">Minutes</span><input type="number" id="edRuntime" min="1" max="999" inputmode="numeric"></label>
+      <label class="field"><span class="label">Genres</span><input type="text" id="edGenres" placeholder="Drama, Comedy"></label>
+    </div>
+    <div class="grid2">
+      <label class="field"><span class="label">Description EN</span><textarea id="edDescEn"></textarea></label>
+      <label class="field"><span class="label">Опис UA</span><textarea id="edDescUa" lang="uk"></textarea></label>
+    </div>
+    <div class="grid2">
+      <label class="field"><span class="label">EN trailer (YouTube link)</span><input type="url" id="edTrEn" placeholder="https://www.youtube.com/watch?v=…"></label>
+      <label class="field"><span class="label">UA trailer (YouTube link)</span><input type="url" id="edTrUa" placeholder="https://www.youtube.com/watch?v=…"></label>
+    </div>
+    <div class="posterbox">
+      <div id="edPosterPrev"></div>
+      <label class="field"><span class="label">Poster image link</span><input type="text" id="edPoster" placeholder="https://… or leave as is"></label>
+    </div>
+    <div class="formmsg" id="edMsg"></div>
+    <div class="sheet-actions">
+      <button type="button" class="btn danger" id="edDelete">Delete film</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="edCancel">Cancel</button>
+      <button type="submit" class="btn primary" id="edSave">Save</button>
+    </div>
+  </form>
+</div>
+
+<!-- Settings -->
+<div class="overlay" id="settings" hidden>
+  <form class="sheet narrow" id="setForm" autocomplete="off" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+    <h2 id="setTitle">Settings</h2>
+    <label class="field"><span class="label">TMDB API key</span><input type="password" id="setKey" placeholder="v3 API key or v4 read access token"></label>
+    <div class="hint">Saved in your private database. Both of you use the same key.</div>
+    <div class="formmsg" id="setMsg"></div>
+    <div class="sheet-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="setCancel">Close</button>
+      <button type="submit" class="btn primary">Save key</button>
+    </div>
+  </form>
+</div>
+
+<!-- Trailer player -->
+<div class="overlay player" id="player" hidden>
+  <div class="player-box" role="dialog" aria-modal="true" aria-label="Trailer">
+    <div class="player-head"><span id="playerTitle"></span><a id="playerYt" target="_blank" rel="noopener noreferrer">Open on YouTube</a><button class="btn" type="button" id="playerClose">Close</button></div>
+    <div class="player-frame" id="playerFrame"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
