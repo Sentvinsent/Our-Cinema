@@ -375,19 +375,27 @@
 
   // ---------- selection & delete (Gmail-style) ----------
   let bulkArmed = false;
+  // Selection bar lives at the bottom of the screen and only appears while something is ticked.
   function renderBulk() {
     const n = selected.size, total = visibleIds.length;
-    const all = $("#selAll");
-    all.checked = n > 0 && n === total;
-    all.indeterminate = n > 0 && n < total;
-    all.disabled = total === 0;
-    $("#bulkCount").textContent = n ? `Вибрано: ${n}` : "Вибрати";
-    $("#bulkDelete").hidden = n === 0;
-    $("#bulkClear").hidden = n === 0;
+    for (const all of [$("#selAll"), $("#selAllHead")]) {
+      all.checked = n > 0 && n === total;
+      all.indeterminate = n > 0 && n < total;
+      all.disabled = total === 0;
+    }
     if (!n) bulkArmed = false;
+    $("#bulkCount").textContent = `Вибрано: ${n}`;
     $("#bulkDelete").textContent = bulkArmed ? "Точно видалити?" : "Видалити";
     $("#bulkDelete").classList.toggle("armed", bulkArmed);
-    $("#bulk").classList.toggle("active", n > 0);
+    const bar = $("#bulk"), show = n > 0 && !$("#app").hidden;
+    document.body.classList.toggle("has-bulk", show);
+    if (show && bar.hidden) {
+      bar.hidden = false;
+      if (motionOK()) bar.animate([{ transform: "translate(-50%, 120%)" }, { transform: "translate(-50%, 0)" }], { duration: 220, easing: EASE });
+    } else if (!show && !bar.hidden) {
+      if (motionOK()) bar.animate([{ transform: "translate(-50%, 0)" }, { transform: "translate(-50%, 120%)" }], { duration: 160, easing: "ease-in" }).finished.then(() => { if (!selected.size) bar.hidden = true; }, () => {});
+      else bar.hidden = true;
+    }
   }
   function toggleSelect(id, on) {
     if (on) selected.add(id); else selected.delete(id);
@@ -415,8 +423,8 @@
     render();
     toast(rows.length === 1 ? "Відновлено" : `Відновлено ${rows.length} ${plural(rows.length, FILMS)}`);
   }
-  $("#selAll").addEventListener("change", (e) => {
-    if (e.target.checked) visibleIds.forEach((id) => selected.add(id)); else selected.clear();
+  for (const id of ["#selAll", "#selAllHead"]) $(id).addEventListener("change", (e) => {
+    if (e.target.checked) visibleIds.forEach((x) => selected.add(x)); else selected.clear();
     bulkArmed = false; render();
   });
   $("#bulkClear").addEventListener("click", () => { selected.clear(); bulkArmed = false; render(); });
@@ -544,13 +552,13 @@
     showAddMsg("");
     const dup = films.find((f) => f.tmdb_id === r.id && f.media_type === r.type);
     if (dup) { showAddMsg(`«${titleOf(dup)}» уже є в списку (вкладка «${TABS.find((t) => t[0] === tabOf(dup))[1]}»).`); return; }
-    addBtn.disabled = true; addBtn.textContent = "Додаємо…";
+    addBtn.disabled = true; addBtn.classList.add("busy");
     try {
       const d = await fetchDetails(r.type, r.id);
       const row = await insertFilm(d);
       if (row) { addInput.value = ""; addSuggest.clear(); if (tab !== "proposed") selectTab("proposed"); toast(`Додано «${titleOf(row)}»`); }
     } catch (e) { showAddMsg(tmdbMsg(e)); }
-    finally { addBtn.disabled = false; addBtn.textContent = "Додати"; }
+    finally { addBtn.disabled = false; addBtn.classList.remove("busy"); }
   }
   $("#addForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -721,6 +729,38 @@
 
   $("#logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
 
+  // ---------- account menu ----------
+  const acctBtn = $("#acctBtn"), acctMenu = $("#acctMenu");
+  function setMenu(open) {
+    if (open === !acctMenu.hidden) return;
+    acctBtn.setAttribute("aria-expanded", String(open));
+    if (open) {
+      acctMenu.hidden = false;
+      if (motionOK()) acctMenu.animate([{ opacity: 0, transform: "translateY(-4px) scale(.98)" }, { opacity: 1, transform: "none" }], { duration: 150, easing: EASE });
+      acctMenu.querySelector("[role=menuitem]").focus({ preventScroll: true });
+    } else acctMenu.hidden = true;
+  }
+  acctBtn.addEventListener("click", (e) => { e.stopPropagation(); setMenu(acctMenu.hidden); });
+  document.addEventListener("click", (e) => { if (!acctMenu.hidden && !e.target.closest(".acct")) setMenu(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !acctMenu.hidden) { setMenu(false); acctBtn.focus(); } });
+
+  // ---------- search: an icon on phones that opens into a field ----------
+  const tools = $("#tools"), searchInput = $("#search");
+  function setSearch(open) {
+    tools.classList.toggle("searching", open);
+    $("#searchOpen").setAttribute("aria-expanded", String(open));
+    if (open) { searchInput.focus(); if (motionOK()) searchInput.animate([{ opacity: 0, transform: "scaleX(.96)" }, { opacity: 1, transform: "none" }], { duration: 160, easing: EASE }); }
+    else if (searchInput.value) { searchInput.value = ""; query = ""; resetPage(); render(); }
+  }
+  $("#searchOpen").addEventListener("click", () => setSearch(true));
+  $("#searchClose").addEventListener("click", () => setSearch(false));
+  searchInput.addEventListener("keydown", (e) => { if (e.key === "Escape") setSearch(false); });
+
+  // ---------- sticky header gets a hairline shadow once the page scrolls ----------
+  const appbar = $("#appbar");
+  const onScroll = () => appbar.classList.toggle("stuck", window.scrollY > 8);
+  window.addEventListener("scroll", onScroll, { passive: true }); onScroll();
+
   // ---------- auth ----------
   // Sign in with email + password. A one-time email link is used only to set the
   // first password (proves the address is yours) or to reset a forgotten one.
@@ -845,6 +885,7 @@
   $("#pwCancel").addEventListener("click", () => showApp());
   $("#pwSignOut").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
   $("#changePwBtn").addEventListener("click", async () => {
+    setMenu(false);
     const { data } = await sb.auth.getSession();
     showPwGate(false, data.session && data.session.user.email);
   });
@@ -860,6 +901,8 @@
     }
     me = name;
     $("#whoName").textContent = "Ви увійшли як " + (NAME[me] || me);
+    const av = $("#acctBtn"); av.classList.toggle("is-alina", me === "Alina"); av.classList.toggle("is-aleks", me !== "Alina");
+    $("#avatarLetter").textContent = (NAME[me] || me || "?").charAt(0);
     const meta = session.user.user_metadata || {};
     if (!meta.password_set) { showPwGate(true, session.user.email); return; }
     showApp();

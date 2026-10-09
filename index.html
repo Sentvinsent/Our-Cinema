@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Unbounded:wght@500;700&display=swap">
-  <link rel="stylesheet" href="styles.css?v=202610092321">
+  <link rel="stylesheet" href="styles.css?v=202610092327">
 </head>
 <body>
 
@@ -52,47 +52,42 @@
 
 <!-- App -->
 <div class="wrap" id="app" hidden>
-  <header class="top">
-    <div>
-      <div class="eyebrow">Квиток на двох</div>
-      <h1>Наше кіно</h1>
-      <div class="sub">Що <span class="a">Алекс</span> і <span class="b">Аліна</span> хочуть подивитися, про що домовилися і що вже бачили.</div>
+  <header class="appbar" id="appbar">
+    <div class="appbar-row">
+      <h1 class="brand">Наше кіно</h1>
+      <div class="acct">
+        <button type="button" class="avatar" id="acctBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="acctMenu" aria-label="Обліковий запис"><span id="avatarLetter">А</span></button>
+        <div class="menu" id="acctMenu" role="menu" hidden>
+          <div class="menu-who" id="whoName"></div>
+          <div class="menu-stats" id="stats"></div>
+          <button type="button" role="menuitem" id="changePwBtn">Змінити пароль</button>
+          <button type="button" role="menuitem" id="logoutBtn">Вийти</button>
+        </div>
+      </div>
     </div>
-    <div class="who">
-      <div class="stats" id="stats"></div>
-      <div class="who-row"><span id="whoName"></span><button class="linkbtn" id="changePwBtn" type="button">Змінити пароль</button><button class="linkbtn" id="logoutBtn" type="button">Вийти</button></div>
-    </div>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Списки"></nav>
   </header>
 
   <form class="add" id="addForm" autocomplete="off">
-    <div class="add-row">
-      <div class="field suggest-host">
-        <label for="addInput"><span class="label">Назва українською або англійською</span></label>
-        <input type="text" id="addInput" placeholder="напр. Минулі життя / Past Lives" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggest">
-        <ul class="suggest" id="suggest" role="listbox" hidden></ul>
-      </div>
-      <button class="btn primary" type="submit" id="addBtn">Додати</button>
+    <div class="suggest-host addfield">
+      <input type="text" id="addInput" placeholder="Додати фільм або серіал…" aria-label="Додати фільм або серіал (назва українською або англійською)" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggest">
+      <button class="addbtn" type="submit" id="addBtn" aria-label="Додати"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg></button>
+      <ul class="suggest" id="suggest" role="listbox" hidden></ul>
     </div>
-    <div class="hint" id="addHint">Виберіть збіг зі списку або натисніть «Додати» для першого. Постер, трейлери й описи обома мовами підтягуються з TMDB.</div>
     <div class="formmsg" id="addMsg" hidden></div>
   </form>
 
-  <div class="bar">
-    <nav class="tabs" id="tabs" role="tablist" aria-label="Списки"></nav>
-    <div class="bar-tools">
-      <div class="kindf" id="kindFilter" role="group" aria-label="Показати">
-        <button type="button" data-kind="all" aria-pressed="true">Усі</button>
-        <button type="button" data-kind="movie" aria-pressed="false">Фільми</button>
-        <button type="button" data-kind="tv" aria-pressed="false">Серіали</button>
-      </div>
-      <input type="search" class="search" id="search" placeholder="Пошук за назвою" aria-label="Пошук за назвою">
+  <div class="tools" id="tools">
+    <div class="kindf" id="kindFilter" role="group" aria-label="Показати">
+      <button type="button" data-kind="all" aria-pressed="true">Усі</button>
+      <button type="button" data-kind="movie" aria-pressed="false">Фільми</button>
+      <button type="button" data-kind="tv" aria-pressed="false">Серіали</button>
     </div>
-  </div>
-
-  <div class="bulk" id="bulk">
-    <label class="bulk-all"><input type="checkbox" id="selAll" aria-label="Вибрати всі фільми в цьому списку"><span id="bulkCount">Вибрати</span></label>
-    <button type="button" class="btn danger" id="bulkDelete" hidden>Видалити</button>
-    <button type="button" class="linkbtn" id="bulkClear" hidden>Зняти вибір</button>
+    <div class="searchbox" id="searchBox">
+      <button type="button" class="iconbtn sq search-open" id="searchOpen" aria-label="Пошук за назвою" aria-expanded="false" aria-controls="search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3a7 7 0 0 1 5.6 11.2l4.6 4.6-1.4 1.4-4.6-4.6A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg></button>
+      <input type="search" class="search" id="search" placeholder="Пошук за назвою" aria-label="Пошук за назвою">
+      <button type="button" class="iconbtn sq search-close" id="searchClose" aria-label="Закрити пошук"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6 10.6 12 5 6.4z"/></svg></button>
+    </div>
   </div>
 
   <div class="status" id="status">Завантажуємо список…</div>
@@ -101,7 +96,7 @@
     <table>
       <thead>
         <tr>
-          <th class="c-sel"><span class="sr">Вибір</span></th>
+          <th class="c-sel"><input type="checkbox" class="sel" id="selAllHead" aria-label="Вибрати всі показані"></th>
           <th class="c-poster">Постер</th>
           <th class="c-name">Назва (англ.)</th>
           <th class="c-name">Назва (укр.)</th>
@@ -175,10 +170,16 @@
   </div>
 </div>
 
+<div class="bulk" id="bulk" hidden>
+  <label class="bulk-all"><input type="checkbox" id="selAll" aria-label="Вибрати всі показані"><span id="bulkCount">Вибрано: 0</span></label>
+  <button type="button" class="linkbtn" id="bulkClear">Зняти вибір</button>
+  <button type="button" class="btn danger" id="bulkDelete">Видалити</button>
+</div>
+
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-<script src="config.js?v=202610092321"></script>
-<script src="app.js?v=202610092321"></script>
+<script src="config.js?v=202610092327"></script>
+<script src="app.js?v=202610092327"></script>
 </body>
 </html>
