@@ -3,5 +3,5 @@
 // The TMDB key is NOT stored here; it lives in the database behind the login.
 window.OUR_CINEMA_CONFIG = {
   supabaseUrl: "https://yzkqhbueyqrtttjkvrhw.supabase.co",
-  supabaseAnonKey: "PASTE_SUPABASE_ANON_KEY",
+  supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6a3FoYnVleXFydHR0amt2cmh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NDg3NTMsImV4cCI6MjEwNzEyNDc1M30.m9vb08JHtGDKCkw8REx3zu5nSNRPyYIp3DnYdlbveGk",
 };

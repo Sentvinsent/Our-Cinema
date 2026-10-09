@@ -2,7 +2,7 @@
 
 A private, shared watchlist for Aleks and Alina.
 
-**Live site:** https://sentvinsent.github.io/our-cinema/
+**Live site:** https://sentvinsent.github.io/Our-Cinema/
 
 ## What it does
 - Tabs: Proposed, Agreed, Watched, Declined by Aleks, Declined by Alina, Declined by both.
