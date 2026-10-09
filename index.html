@@ -23,7 +23,8 @@
     <h1>Our Cinema</h1>
     <p class="sub">Private list for Aleks and Alina. Enter your email and we'll send you a sign-in link.</p>
     <label class="field"><span>Email</span><input type="email" id="loginEmail" autocomplete="email" required placeholder="you@example.com"></label>
-    <button class="btn primary" type="submit" id="loginBtn">Send sign-in link</button>
+    <div class="hint" id="loginHint" hidden>Only Aleks's and Alina's emails can sign in.</div>
+    <button class="btn primary" type="submit" id="loginBtn" disabled>Send sign-in link</button>
     <div class="formmsg" id="loginMsg" role="status"></div>
   </form>
 </main>

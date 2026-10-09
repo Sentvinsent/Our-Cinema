@@ -39,5 +39,9 @@ This product uses the TMDB API but is not endorsed or certified by TMDB.
 - The TMDB key is in `app_secrets`, which has RLS on, no policies and no grants, so no browser can read it.
   `tmdb()` is the only way in: it checks membership, allows only TMDB search and details paths,
   and keeps a fixed search path.
+- Only the two member emails can get an account (`supabase/auth-hook.sql`, a Before User Created hook),
+  so sign-in links can't be sent to other addresses. Sign-in requests are rate-limited (5 per 5 minutes
+  per IP; the project sends at most 2 emails an hour), and the site locks its button for 60 seconds
+  after each send.
 - The page sends a Content Security Policy, and the Supabase library is pinned with an integrity hash.
 - No secrets are in this repository. The anon key in `config.js` is public by design.

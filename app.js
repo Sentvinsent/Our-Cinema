@@ -595,17 +595,62 @@
   }
   function showApp() { $("#gate").hidden = true; $("#app").hidden = false; }
 
-  $("#loginForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const email = $("#loginEmail").value.trim().toLowerCase();
-    if (!email) return;
-    const btn = $("#loginBtn"); btn.disabled = true;
-    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
-    btn.disabled = false;
-    if (error) {
-      showGate(error.status === 429 ? "Too many sign-in emails. Wait a minute, then try again." : "Couldn't send the link: " + error.message);
+  // Sign-in button: enabled only for a member email (compared by SHA-256 fingerprint,
+  // so the addresses aren't in the public code), then locked for 60 s after each send.
+  const COOLDOWN_MS = 60000;
+  const loginBtn = $("#loginBtn"), loginEmail = $("#loginEmail"), loginHint = $("#loginHint");
+  let emailOk = false, sending = false, cooldownTimer = null, checkSeq = 0;
+  function cooldownLeft() {
+    let until = 0;
+    try { until = Number(localStorage.getItem("oc-login-wait")) || 0; } catch (e) {}
+    return Math.max(0, until - Date.now());
+  }
+  function startCooldown(ms) {
+    try { localStorage.setItem("oc-login-wait", String(Date.now() + ms)); } catch (e) {}
+    tickLogin();
+  }
+  async function sha256(text) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  function tickLogin() {
+    clearTimeout(cooldownTimer);
+    const left = cooldownLeft();
+    if (left > 0) {
+      loginBtn.disabled = true;
+      loginBtn.textContent = `Send again in ${Math.ceil(left / 1000)}s`;
+      cooldownTimer = setTimeout(tickLogin, 1000);
       return;
     }
+    loginBtn.textContent = "Send sign-in link";
+    loginBtn.disabled = sending || !emailOk || !sb;
+  }
+  async function checkEmail() {
+    const my = ++checkSeq;
+    const v = loginEmail.value.trim().toLowerCase();
+    const looksComplete = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(v);
+    const ok = looksComplete && (CFG.memberEmailHashes || []).includes(await sha256(v));
+    if (my !== checkSeq) return;
+    emailOk = ok;
+    loginHint.hidden = !looksComplete || ok;
+    tickLogin();
+  }
+  loginEmail.addEventListener("input", checkEmail);
+  loginEmail.addEventListener("change", checkEmail);
+
+  $("#loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!emailOk || sending || cooldownLeft() > 0) return;
+    const email = loginEmail.value.trim().toLowerCase();
+    sending = true; tickLogin();
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
+    sending = false;
+    if (error) {
+      if (error.status === 429) { startCooldown(COOLDOWN_MS); showGate("Too many sign-in emails right now. Wait a bit, then try again."); }
+      else { tickLogin(); showGate("Couldn't send the link: " + error.message); }
+      return;
+    }
+    startCooldown(COOLDOWN_MS);
     showGate(`Link sent to ${email}. Open it on any device to sign in.`, true);
   });
 
@@ -635,6 +680,8 @@
       $("#loginBtn").disabled = true;
       return;
     }
+    setTimeout(checkEmail, 300);
+    tickLogin();
     const hashErr = new URLSearchParams(location.hash.slice(1)).get("error_description");
     sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "implicit" },
