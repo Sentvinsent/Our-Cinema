@@ -5,17 +5,37 @@
   const $ = (s) => document.querySelector(s);
   const IMG = "https://image.tmdb.org/t/p/";
   const TABS = [
-    ["proposed", "Proposed"], ["agreed", "Agreed"], ["watched", "Watched"],
-    ["aleks", "Declined by Aleks"], ["alina", "Declined by Alina"], ["both", "Declined by both"],
+    ["proposed", "Запропоновані"], ["agreed", "Погоджені"], ["watched", "Переглянуті"],
+    ["aleks", "Відхилив Алекс"], ["alina", "Відхилила Аліна"], ["both", "Відхилили обоє"],
   ];
   const EMPTY = {
-    proposed: ["Nothing proposed right now", "Add a title above. When you both vote Yes it moves to Agreed."],
-    agreed: ["No agreed films yet", "Films land here once Aleks and Alina both vote Yes."],
-    watched: ["Nothing watched yet", "Tick Watched on any film to move it here."],
-    aleks: ["Aleks hasn't declined anything", "Films Aleks votes No on (and Alina doesn't) show up here."],
-    alina: ["Alina hasn't declined anything", "Films Alina votes No on (and Aleks doesn't) show up here."],
-    both: ["Nothing declined by both", "Films you both vote No on show up here."],
+    proposed: ["Поки нічого не запропоновано", "Додайте назву вгорі. Коли ви обоє проголосуєте «Так», фільм перейде до погоджених."],
+    agreed: ["Погоджених фільмів ще немає", "Тут з’являються фільми, за які Алекс і Аліна обоє проголосували «Так»."],
+    watched: ["Переглянутих ще немає", "Позначте «Переглянуто» на будь-якому фільмі, і він з’явиться тут."],
+    aleks: ["Алекс нічого не відхилив", "Тут фільми, за які Алекс проголосував «Ні» (а Аліна — ні)."],
+    alina: ["Аліна нічого не відхилила", "Тут фільми, за які Аліна проголосувала «Ні» (а Алекс — ні)."],
+    both: ["Обоє нічого не відхилили", "Тут фільми, за які ви обоє проголосували «Ні»."],
   };
+  const NAME = { Aleks: "Алекс", Alina: "Аліна" };
+  // TMDB genre names (English) → Ukrainian, for films saved before genres were stored in Ukrainian.
+  const GENRE_UA = {
+    "Action": "Бойовик", "Adventure": "Пригоди", "Animation": "Анімація", "Comedy": "Комедія", "Crime": "Кримінал",
+    "Documentary": "Документальний", "Drama": "Драма", "Family": "Сімейний", "Fantasy": "Фентезі", "History": "Історичний",
+    "Horror": "Жахи", "Music": "Музика", "Mystery": "Детектив", "Romance": "Мелодрама", "Science Fiction": "Фантастика",
+    "TV Movie": "Телефільм", "Thriller": "Трилер", "War": "Військовий", "Western": "Вестерн",
+    "Action & Adventure": "Бойовик і пригоди", "Kids": "Дитячий", "News": "Новини", "Reality": "Реаліті",
+    "Sci-Fi & Fantasy": "Фантастика і фентезі", "Soap": "Мильна опера", "Talk": "Ток-шоу", "War & Politics": "Війна і політика",
+  };
+  const genreUa = (g) => GENRE_UA[g] || g;
+  // Ukrainian plural: plural(5, ["фільм", "фільми", "фільмів"]) → "фільмів"
+  function plural(n, forms) {
+    const a = Math.abs(n) % 100, b = a % 10;
+    if (a > 10 && a < 20) return forms[2];
+    if (b === 1) return forms[0];
+    if (b >= 2 && b <= 4) return forms[1];
+    return forms[2];
+  }
+  const FILMS = ["фільм", "фільми", "фільмів"];
 
   let sb = null;
   let films = [], loaded = false, started = false;
@@ -33,7 +53,7 @@
   const num = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? Math.round(n) : null; };
   const norm = (s) => String(s || "").toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]+/gu, "");
   const hash = (s) => { let x = 0; for (const c of String(s)) x = (x * 31 + c.codePointAt(0)) >>> 0; return x; };
-  const titleOf = (f) => f.name_en || f.name_ua || "Untitled";
+  const titleOf = (f) => f.name_ua || f.name_en || "Без назви";
   const isCyr = (s) => /[Ѐ-ӿ]/.test(s);
   const ytUrl = (key) => (key ? "https://www.youtube.com/watch?v=" + key : "");
   function ytId(url) {
@@ -75,11 +95,11 @@
     const s = $("#status"); s.textContent = msg || ""; s.hidden = !msg; s.classList.toggle("err", !!err);
   }
   function dbErr(e) {
-    if (!e) return "Something went wrong. Try again.";
-    if (e.code === "23505") return "That film is already on the list.";
-    if (e.code === "42501" || /row-level security/i.test(e.message || "")) return "This account can't change the list.";
-    if (/JWT|token/i.test(e.message || "")) return "Your sign-in expired. Reload the page.";
-    return "Couldn't save. Check your connection and try again.";
+    if (!e) return "Щось пішло не так. Спробуйте ще раз.";
+    if (e.code === "23505") return "Цей фільм уже є в списку.";
+    if (e.code === "42501" || /row-level security/i.test(e.message || "")) return "Цей обліковий запис не може змінювати список.";
+    if (/JWT|token/i.test(e.message || "")) return "Сеанс завершився. Оновіть сторінку.";
+    return "Не вдалося зберегти. Перевірте з’єднання і спробуйте ще раз.";
   }
 
   // ---------- TMDB ----------
@@ -101,11 +121,11 @@
   }
   function tmdbMsg(e) {
     switch (e && e.kind) {
-      case "nokey": return "The TMDB key isn't set up on the server.";
-      case "auth": return "TMDB rejected the server's key.";
-      case "rate": return "TMDB is busy. Try again in a few seconds.";
-      case "network": return "Couldn't reach TMDB. Check your connection.";
-      default: return "TMDB lookup failed. Try again.";
+      case "nokey": return "Ключ TMDB не налаштований на сервері.";
+      case "auth": return "TMDB не прийняв ключ сервера.";
+      case "rate": return "TMDB перевантажений. Спробуйте за кілька секунд.";
+      case "network": return "Не вдалося зв’язатися з TMDB. Перевірте з’єднання.";
+      default: return "Пошук у TMDB не вдався. Спробуйте ще раз.";
     }
   }
 
@@ -146,7 +166,7 @@
       name_ua: uk.title || uk.name || "",
       year: date ? Number(date.slice(0, 4)) : null,
       runtime: type === "movie" ? (en.runtime || null) : ((en.episode_run_time || [])[0] || null),
-      genres: (en.genres || []).map((g) => g.name).slice(0, 3),
+      genres: ((uk.genres && uk.genres.length ? uk.genres : en.genres) || []).map((g) => genreUa(g.name)).slice(0, 3),
       desc_en: en.overview || "",
       desc_ua: uk.overview || "",
       poster_path: en.poster_path || uk.poster_path || "",
@@ -159,90 +179,108 @@
   // ---------- rendering ----------
   const PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
 
+  const FILM_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4V4zm2 2v2h2V6H6zm10 0v2h2V6h-2zM6 10v4h2v-4H6zm10 0v4h2v-4h-2zM6 16v2h2v-2H6zm10 0v2h2v-2h-2zM10 6v12h4V6h-4z"/></svg>';
+  const TV_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2l4 4 4-4 1.4 1.4L14.8 6H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5.2L6.6 3.4 8 2zM4 8v10h16V8H4z"/></svg>';
+  function kindHTML(f) {
+    return f.media_type === "tv"
+      ? `<span class="kind kind-tv">${TV_ICON}Серіал</span>`
+      : `<span class="kind kind-movie">${FILM_ICON}Фільм</span>`;
+  }
   function trailerHTML(f, which, label) {
     const url = which === "en" ? f.trailer_en : f.trailer_ua;
-    if (!url) return f.tmdb_id ? `<span class="none">${which === "ua" ? "No UA trailer on TMDB" : "No trailer on TMDB"}</span>` : '<span class="dim">—</span>';
+    if (!url) return f.tmdb_id ? `<span class="none">${which === "ua" ? "Українського трейлера на TMDB немає" : "Трейлера на TMDB немає"}</span>` : '<span class="dim">—</span>';
     return `<button type="button" class="trl" data-act="play" data-id="${f.id}" data-which="${which}">${PLAY}<span>${esc(label)}</span></button>`;
   }
   function posterHTML(f) {
     const t = titleOf(f), src = posterSrc(f.poster_path, "w185");
-    if (src) return `<button class="poster" data-act="edit" data-id="${f.id}" aria-label="Edit ${esc(t)}"><img src="${esc(src)}" alt="" loading="lazy"></button>`;
-    return `<button class="poster" data-act="edit" data-id="${f.id}" aria-label="Edit ${esc(t)}"><span class="pg" style="--h:${hash(t) % 360}"><span class="pg-t">${esc(t)}</span><span class="pg-y">${esc(f.year || "")}</span></span></button>`;
+    if (src) return `<button class="poster" data-act="edit" data-id="${f.id}" aria-label="Редагувати: ${esc(t)}"><img src="${esc(src)}" alt="" loading="lazy"></button>`;
+    return `<button class="poster" data-act="edit" data-id="${f.id}" aria-label="Редагувати: ${esc(t)}"><span class="pg" style="--h:${hash(t) % 360}"><span class="pg-t">${esc(t)}</span><span class="pg-y">${esc(f.year || "")}</span></span></button>`;
   }
   function metaHTML(f) {
     const bits = [];
     if (f.year) bits.push(f.year);
-    if (f.runtime) bits.push(f.runtime + " min");
-    if (f.media_type === "tv") bits.push("series");
-    if (Array.isArray(f.genres) && f.genres.length) bits.push(f.genres.slice(0, 3).join(", "));
+    if (f.runtime) bits.push(f.runtime + (f.media_type === "tv" ? " хв/серія" : " хв"));
+    if (Array.isArray(f.genres) && f.genres.length) bits.push(f.genres.slice(0, 3).map(genreUa).join(", "));
     return bits.length ? `<div class="meta">${esc(bits.join(" · "))}</div>` : "";
   }
   function fillHTML(f) {
-    if (busy.has(f.id)) return `<div class="fillstate"><span class="spin"></span>Filling in from TMDB…</div>`;
-    if (!f.tmdb_id && f.match_state === "failed") return `<div class="fillstate">Not found on TMDB. <button class="linkbtn" data-act="edit" data-id="${f.id}">Find it</button></div>`;
+    if (busy.has(f.id)) return `<div class="fillstate"><span class="spin"></span>Заповнюємо з TMDB…</div>`;
+    if (!f.tmdb_id && f.match_state === "failed") return `<div class="fillstate">Не знайдено на TMDB. <button class="linkbtn" data-act="edit" data-id="${f.id}">Знайти</button></div>`;
     return "";
   }
   function descHTML(f, lang) {
     const text = lang === "en" ? f.desc_en : f.desc_ua;
-    if (!text) return f.tmdb_id && lang === "ua" ? '<span class="none">No Ukrainian description on TMDB</span>' : '<span class="dim">—</span>';
+    if (!text) return f.tmdb_id && lang === "ua" ? '<span class="none">Українського опису на TMDB немає</span>' : '<span class="dim">—</span>';
     const key = f.id + ":" + lang, open = expanded.has(key);
     return `<div class="desc${open ? " open" : ""}" ${lang === "ua" ? 'lang="uk"' : ""} data-act="desc" data-key="${key}" role="button" tabindex="0" aria-expanded="${open}">${esc(text)}</div>`;
   }
   function voteHTML(f, who, showName) {
-    const v = f[who] || "", Who = who === "aleks" ? "Aleks" : "Alina";
-    return `<div class="vote ${who}" role="group" aria-label="${Who}'s vote">${showName ? `<span class="vote-name">${Who}</span>` : ""}`
-      + `<button class="vb yes${v === "yes" ? " on" : ""}" data-act="vote" data-id="${f.id}" data-who="${who}" data-val="yes" aria-pressed="${v === "yes"}">Yes</button>`
-      + `<button class="vb no${v === "no" ? " on" : ""}" data-act="vote" data-id="${f.id}" data-who="${who}" data-val="no" aria-pressed="${v === "no"}">No</button></div>`;
+    const v = f[who] || "", Who = who === "aleks" ? "Алекс" : "Аліна";
+    return `<div class="vote ${who}" role="group" aria-label="Голос: ${Who}">${showName ? `<span class="vote-name">${Who}</span>` : ""}`
+      + `<div class="seg"><button class="vb yes${v === "yes" ? " on" : ""}" data-act="vote" data-id="${f.id}" data-who="${who}" data-val="yes" aria-pressed="${v === "yes"}">Так</button>`
+      + `<button class="vb no${v === "no" ? " on" : ""}" data-act="vote" data-id="${f.id}" data-who="${who}" data-val="no" aria-pressed="${v === "no"}">Ні</button></div></div>`;
   }
   function watchHTML(f, prefix) {
-    return `<label class="watch"><input type="checkbox" id="${prefix}-w-${f.id}" data-act="watched" data-id="${f.id}" ${f.watched ? "checked" : ""}><span>Watched</span></label>`;
+    return `<label class="watch${f.watched ? " on" : ""}"><input type="checkbox" id="${prefix}-w-${f.id}" data-act="watched" data-id="${f.id}" ${f.watched ? "checked" : ""}><span>Переглянуто</span></label>`;
+  }
+  const PENCIL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm17.7-10.2a1 1 0 0 0 0-1.42l-2.33-2.33a1 1 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
+  function editBtnHTML(f, iconOnly) {
+    return iconOnly
+      ? `<button class="iconbtn sq" data-act="edit" data-id="${f.id}" aria-label="Редагувати: ${esc(titleOf(f))}" title="Редагувати">${PENCIL}</button>`
+      : `<button class="iconbtn" data-act="edit" data-id="${f.id}">Змінити</button>`;
   }
   const TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg>';
   function selHTML(f, prefix) {
     const on = selected.has(f.id);
-    return `<input type="checkbox" class="sel" id="${prefix}-s-${f.id}" data-act="select" data-id="${f.id}" ${on ? "checked" : ""} aria-label="Select ${esc(titleOf(f))}">`;
+    return `<input type="checkbox" class="sel" id="${prefix}-s-${f.id}" data-act="select" data-id="${f.id}" ${on ? "checked" : ""} aria-label="Вибрати: ${esc(titleOf(f))}">`;
   }
   function delBtnHTML(f) {
-    return `<button class="iconbtn del" data-act="delete" data-id="${f.id}" aria-label="Delete ${esc(titleOf(f))}" title="Delete">${TRASH}</button>`;
+    return `<button class="iconbtn sq del" data-act="delete" data-id="${f.id}" aria-label="Видалити: ${esc(titleOf(f))}" title="Видалити">${TRASH}</button>`;
   }
   function rowHTML(f) {
     return `<tr${selected.has(f.id) ? ' class="is-sel"' : ""}>
       <td class="c-sel">${selHTML(f, "t")}</td>
       <td class="c-poster">${posterHTML(f)}</td>
-      <td class="c-name"><div class="title-en">${f.name_en ? esc(f.name_en) : '<span class="dim">—</span>'}</div>${metaHTML(f)}${fillHTML(f)}</td>
+      <td class="c-name">${kindHTML(f)}<div class="title-en">${f.name_en ? esc(f.name_en) : '<span class="dim">—</span>'}</div>${metaHTML(f)}${fillHTML(f)}</td>
       <td class="c-name"><div class="title-ua" lang="uk">${f.name_ua ? esc(f.name_ua) : '<span class="dim">—</span>'}</div></td>
       <td class="c-desc">${descHTML(f, "en")}</td>
       <td class="c-desc">${descHTML(f, "ua")}</td>
-      <td class="c-tr">${trailerHTML(f, "en", "Play EN")}</td>
-      <td class="c-tr">${trailerHTML(f, "ua", "Play UA")}</td>
+      <td class="c-tr">${trailerHTML(f, "en", "Англ.")}</td>
+      <td class="c-tr">${trailerHTML(f, "ua", "Укр.")}</td>
       <td class="c-vote">${voteHTML(f, "aleks", false)}</td>
       <td class="c-vote">${voteHTML(f, "alina", false)}</td>
       <td class="c-watch">${watchHTML(f, "t")}</td>
-      <td class="c-edit"><div class="row-tools"><button class="iconbtn" data-act="edit" data-id="${f.id}">Edit</button>${delBtnHTML(f)}</div></td>
+      <td class="c-edit"><div class="row-tools">${editBtnHTML(f, true)}${delBtnHTML(f)}</div></td>
     </tr>`;
   }
   function cardHTML(f) {
-    const tr = [f.trailer_en ? trailerHTML(f, "en", "EN trailer") : "", f.trailer_ua ? trailerHTML(f, "ua", "UA трейлер") : ""].join("");
-    return `<article class="card${selected.has(f.id) ? " is-sel" : ""}">
+    const tr = [f.trailer_ua ? trailerHTML(f, "ua", "Трейлер укр.") : "", f.trailer_en ? trailerHTML(f, "en", "Трейлер англ.") : ""].join("");
+    const main = f.name_ua || f.name_en || "Без назви";
+    const second = f.name_ua && f.name_en && norm(f.name_ua) !== norm(f.name_en) ? f.name_en : "";
+    return `<article class="card${selected.has(f.id) ? " is-sel" : ""}${f.media_type === "tv" ? " is-tv" : ""}">
       <label class="card-sel">${selHTML(f, "c")}</label>
-      <div>${posterHTML(f)}</div>
+      <div class="card-poster">${posterHTML(f)}</div>
       <div class="card-head">
-        <div class="title-en">${esc(f.name_en || f.name_ua || "Untitled")}</div>
-        ${f.name_en && f.name_ua ? `<div class="title-ua" lang="uk">${esc(f.name_ua)}</div>` : ""}
+        ${kindHTML(f)}
+        <div class="title-ua" lang="uk">${esc(main)}</div>
+        ${second ? `<div class="title-en" lang="en">${esc(second)}</div>` : ""}
         ${metaHTML(f)}${fillHTML(f)}
-        ${tr ? `<div class="card-trailers">${tr}</div>` : ""}
       </div>
+      ${tr ? `<div class="card-trailers">${tr}</div>` : ""}
       ${f.desc_en || f.desc_ua ? `<div class="card-desc">
-        ${f.desc_en ? `<div><span class="lang">EN</span>${descHTML(f, "en")}</div>` : ""}
-        ${f.desc_ua ? `<div><span class="lang">UA</span>${descHTML(f, "ua")}</div>` : ""}
+        ${f.desc_ua ? `<div><span class="lang">Укр.</span>${descHTML(f, "ua")}</div>` : ""}
+        ${f.desc_en ? `<div lang="en"><span class="lang">Англ.</span>${descHTML(f, "en")}</div>` : ""}
       </div>` : ""}
       <div class="card-actions">
-        ${voteHTML(f, "aleks", true)}
-        ${voteHTML(f, "alina", true)}
-        ${watchHTML(f, "c")}
-        <span class="spacer"></span>
-        <button class="iconbtn" data-act="edit" data-id="${f.id}">Edit</button>
-        ${delBtnHTML(f)}
+        <div class="card-votes">
+          ${voteHTML(f, "aleks", true)}
+          ${voteHTML(f, "alina", true)}
+        </div>
+        <div class="card-tools">
+          ${watchHTML(f, "c")}
+          ${editBtnHTML(f, true)}
+          ${delBtnHTML(f)}
+        </div>
       </div>
     </article>`;
   }
@@ -252,7 +290,7 @@
     for (const f of films) counts[tabOf(f)]++;
     $("#tabs").innerHTML = TABS.map(([k, label]) =>
       `<button class="tab" role="tab" data-tab="${k}" aria-selected="${k === tab}"><span>${label}</span><span class="n">${counts[k]}</span></button>`).join("");
-    $("#stats").textContent = loaded ? `${films.length} titles · ${counts.watched} watched` : "";
+    $("#stats").textContent = loaded ? `${films.length} ${plural(films.length, ["назва", "назви", "назв"])} · переглянуто ${counts.watched}` : "";
     if (!loaded) return;
     setStatus("");
 
@@ -268,7 +306,7 @@
 
     const empty = $("#empty");
     if (!list.length) {
-      const [h, s] = q ? ["No matches", "No titles in this list match your search."] : EMPTY[tab];
+      const [h, s] = q ? ["Нічого не знайдено", "У цьому списку немає назв, що відповідають пошуку."] : EMPTY[tab];
       empty.innerHTML = `<b>${esc(h)}</b>${esc(s)}`;
       empty.hidden = false; $("#tableWrap").hidden = true; $("#cards").hidden = true;
       return;
@@ -286,11 +324,11 @@
     all.checked = n > 0 && n === total;
     all.indeterminate = n > 0 && n < total;
     all.disabled = total === 0;
-    $("#bulkCount").textContent = n ? `${n} selected` : "Select";
+    $("#bulkCount").textContent = n ? `Вибрано: ${n}` : "Вибрати";
     $("#bulkDelete").hidden = n === 0;
     $("#bulkClear").hidden = n === 0;
     if (!n) bulkArmed = false;
-    $("#bulkDelete").textContent = bulkArmed ? `Confirm: delete ${n}` : `Delete ${n === 1 ? "film" : n + " films"}`;
+    $("#bulkDelete").textContent = bulkArmed ? "Точно видалити?" : "Видалити";
     $("#bulkDelete").classList.toggle("armed", bulkArmed);
     $("#bulk").classList.toggle("active", n > 0);
   }
@@ -309,15 +347,15 @@
     render();
     const { error } = await sb.from("films").delete().in("id", ids);
     if (error) { films = films.concat(removed); render(); toast(dbErr(error)); return; }
-    const label = removed.length === 1 ? `Deleted “${titleOf(removed[0])}”` : `Deleted ${removed.length} films`;
-    toast(label, { label: "Undo", run: () => restoreFilms(removed) });
+    const label = removed.length === 1 ? `Видалено «${titleOf(removed[0])}»` : `Видалено ${removed.length} ${plural(removed.length, FILMS)}`;
+    toast(label, { label: "Скасувати", run: () => restoreFilms(removed) });
   }
   async function restoreFilms(rows) {
     const { data, error } = await sb.from("films").insert(rows.map((r) => ({ ...r }))).select();
     if (error) { toast(dbErr(error)); return; }
     for (const r of data || []) if (!films.some((f) => f.id === r.id)) films.push(r);
     render();
-    toast(rows.length === 1 ? "Restored" : `Restored ${rows.length} films`);
+    toast(rows.length === 1 ? "Відновлено" : `Відновлено ${rows.length} ${plural(rows.length, FILMS)}`);
   }
   $("#selAll").addEventListener("change", (e) => {
     if (e.target.checked) visibleIds.forEach((id) => selected.add(id)); else selected.clear();
@@ -332,7 +370,7 @@
   // ---------- data ----------
   async function loadFilms() {
     const { data, error } = await sb.from("films").select("*").order("created_at", { ascending: false });
-    if (error) { setStatus("Your list couldn't load. Reload the page to try again.", true); return; }
+    if (error) { setStatus("Не вдалося завантажити список. Оновіть сторінку.", true); return; }
     films = data || []; loaded = true; render();
   }
   function subscribe() {
@@ -406,8 +444,9 @@
       if (!items.length) { close(); return; }
       list.innerHTML = items.map((r, i) => {
         const img = r.poster ? `<img src="${esc(IMG + "w92" + r.poster)}" alt="">` : '<span class="noimg"></span>';
-        const sub = [r.year, r.type === "tv" ? "series" : "film", r.original && r.original !== r.title ? r.original : ""].filter(Boolean).join(" · ");
-        return `<li role="option" data-i="${i}" aria-selected="${i === active}">${img}<div style="min-width:0"><div class="s-t">${esc(r.title)}</div><div class="s-m">${esc(sub)}</div></div></li>`;
+        const sub = [r.year, r.original && r.original !== r.title ? r.original : ""].filter(Boolean).join(" · ");
+        const kind = r.type === "tv" ? `<span class="kind kind-tv">${TV_ICON}Серіал</span>` : `<span class="kind kind-movie">${FILM_ICON}Фільм</span>`;
+        return `<li role="option" data-i="${i}" aria-selected="${i === active}">${img}<div style="min-width:0"><div class="s-t">${esc(r.title)}</div><div class="s-m">${kind}<span>${esc(sub)}</span></div></div></li>`;
       }).join("");
       list.hidden = false; input.setAttribute("aria-expanded", "true");
     };
@@ -415,7 +454,7 @@
       const q = input.value.trim();
       if (q.length < 2) { items = []; close(); return; }
       const my = ++seq;
-      try { const res = await searchTitles(q); if (my !== seq) return; items = res; active = -1; paint(res.length ? "" : "No matches on TMDB"); }
+      try { const res = await searchTitles(q); if (my !== seq) return; items = res; active = -1; paint(res.length ? "" : "На TMDB нічого не знайдено"); }
       catch (e) { if (my === seq) paint(tmdbMsg(e)); }
     }, 300);
     input.addEventListener("input", run);
@@ -440,19 +479,19 @@
   async function addFromResult(r) {
     showAddMsg("");
     const dup = films.find((f) => f.tmdb_id === r.id && f.media_type === r.type);
-    if (dup) { showAddMsg(`“${titleOf(dup)}” is already on the list (in ${TABS.find((t) => t[0] === tabOf(dup))[1]}).`); return; }
-    addBtn.disabled = true; addBtn.textContent = "Adding…";
+    if (dup) { showAddMsg(`«${titleOf(dup)}» уже є в списку (вкладка «${TABS.find((t) => t[0] === tabOf(dup))[1]}»).`); return; }
+    addBtn.disabled = true; addBtn.textContent = "Додаємо…";
     try {
       const d = await fetchDetails(r.type, r.id);
       const row = await insertFilm(d);
-      if (row) { addInput.value = ""; addSuggest.clear(); if (tab !== "proposed") selectTab("proposed"); toast(`Added ${titleOf(row)}`); }
+      if (row) { addInput.value = ""; addSuggest.clear(); if (tab !== "proposed") selectTab("proposed"); toast(`Додано «${titleOf(row)}»`); }
     } catch (e) { showAddMsg(tmdbMsg(e)); }
-    finally { addBtn.disabled = false; addBtn.textContent = "Add film"; }
+    finally { addBtn.disabled = false; addBtn.textContent = "Додати"; }
   }
   $("#addForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const q = addInput.value.trim();
-    if (!q) { showAddMsg("Type a title first."); return; }
+    if (!q) { showAddMsg("Спершу введіть назву."); return; }
     addBtn.disabled = true;
     try {
       const res = await searchTitles(q);
@@ -460,7 +499,7 @@
       const exact = res.filter((r) => norm(r.title) === norm(q) || norm(r.original) === norm(q));
       const best = exact.find((r) => r.type === "movie") || exact[0] || res[0];
       if (best) await addFromResult(best);
-      else showAddMsg(`No match on TMDB for “${q}”. Check the spelling, or try the other language.`);
+      else showAddMsg(`На TMDB немає збігів для «${q}». Перевірте написання або спробуйте іншою мовою.`);
     } catch (err) { showAddMsg(tmdbMsg(err)); }
     finally { addBtn.disabled = false; }
   });
@@ -510,9 +549,9 @@
     const url = which === "en" ? f.trailer_en : f.trailer_ua;
     const id = ytId(url);
     if (!id) { if (/^https?:\/\//i.test(url)) window.open(url, "_blank", "noopener"); return; }
-    $("#playerTitle").textContent = `${titleOf(f)} · ${which === "en" ? "English trailer" : "Український трейлер"}`;
+    $("#playerTitle").textContent = `${titleOf(f)} · ${which === "en" ? "англійський трейлер" : "український трейлер"}`;
     $("#playerYt").href = "https://www.youtube.com/watch?v=" + id;
-    $("#playerFrame").innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0" title="Trailer" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
+    $("#playerFrame").innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0" title="Трейлер" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
     openOverlay("#player");
   }
   function closePlayer() { $("#playerFrame").innerHTML = ""; closeOverlay("#player"); }
@@ -532,27 +571,27 @@
   function fillForm(d) {
     $("#edEn").value = d.name_en || ""; $("#edUa").value = d.name_ua || "";
     $("#edYear").value = d.year || ""; $("#edRuntime").value = d.runtime || "";
-    $("#edGenres").value = Array.isArray(d.genres) ? d.genres.join(", ") : "";
+    $("#edGenres").value = Array.isArray(d.genres) ? d.genres.map(genreUa).join(", ") : "";
     $("#edDescEn").value = d.desc_en || ""; $("#edDescUa").value = d.desc_ua || "";
     $("#edTrEn").value = d.trailer_en || ""; $("#edTrUa").value = d.trailer_ua || "";
     $("#edPoster").value = d.poster_path || "";
     edPreview();
   }
   const edSuggest = makeSuggest($("#edMatch"), $("#edSuggest"), async (r) => {
-    edMsg.classList.remove("ok"); edMsg.textContent = "Loading from TMDB…";
+    edMsg.classList.remove("ok"); edMsg.textContent = "Завантажуємо з TMDB…";
     try {
       const d = await fetchDetails(r.type, r.id);
       const dup = films.find((f) => f.id !== edId && f.tmdb_id === d.tmdb_id && f.media_type === d.media_type);
-      if (dup) { edMsg.textContent = `“${titleOf(dup)}” is already on the list.`; return; }
+      if (dup) { edMsg.textContent = `«${titleOf(dup)}» уже є в списку.`; return; }
       edMatch = d; fillForm(d); $("#edMatch").value = "";
-      edMsg.classList.add("ok"); edMsg.textContent = "Filled in from TMDB. Tap Save to keep it.";
+      edMsg.classList.add("ok"); edMsg.textContent = "Заповнено з TMDB. Натисніть «Зберегти», щоб залишити.";
     } catch (e) { edMsg.textContent = tmdbMsg(e); }
   });
   function openEditor(id) {
     const f = films.find((x) => x.id === id); if (!f) return;
     edId = id; edMatch = null; delArmed = false;
-    $("#edDelete").textContent = "Delete film";
-    $("#edTitle").textContent = "Edit · " + titleOf(f);
+    $("#edDelete").textContent = "Видалити";
+    $("#edTitle").textContent = "Редагування · " + titleOf(f);
     $("#edMatch").value = ""; edSuggest.clear();
     edMsg.textContent = ""; edMsg.classList.remove("ok");
     fillForm(f);
@@ -567,7 +606,7 @@
     const f = films.find((x) => x.id === edId); if (!f) { closeEditor(); return; }
     edMsg.classList.remove("ok");
     const trEn = $("#edTrEn").value.trim(), trUa = $("#edTrUa").value.trim();
-    for (const u of [trEn, trUa]) if (u && !/^https?:\/\//i.test(u)) { edMsg.textContent = "Trailers need a full link starting with https://"; return; }
+    for (const u of [trEn, trUa]) if (u && !/^https?:\/\//i.test(u)) { edMsg.textContent = "Трейлер має бути повним посиланням, що починається з https://"; return; }
     const patch = {
       name_en: $("#edEn").value.trim(), name_ua: $("#edUa").value.trim(),
       year: num($("#edYear").value), runtime: num($("#edRuntime").value),
@@ -576,10 +615,10 @@
       trailer_en: trEn, trailer_ua: trUa,
       poster_path: $("#edPoster").value.trim(),
     };
-    if (!patch.name_en && !patch.name_ua) { edMsg.textContent = "Give the film at least one title."; return; }
+    if (!patch.name_en && !patch.name_ua) { edMsg.textContent = "Вкажіть хоча б одну назву."; return; }
     if (edMatch) { patch.tmdb_id = edMatch.tmdb_id; patch.media_type = edMatch.media_type; patch.match_state = "done"; }
     const id = edId; closeEditor();
-    if (await patchFilm(id, patch)) toast("Saved");
+    if (await patchFilm(id, patch)) toast("Збережено");
   });
   $("#edDelete").addEventListener("click", async () => {
     const id = edId; closeEditor();
@@ -604,8 +643,8 @@
   function showPwGate(first, email) {
     pwFirst = first;
     hideAll(); $("#pwGate").hidden = false;
-    $("#pwTitle").textContent = first ? "Choose a password" : "Change password";
-    $("#pwSub").textContent = first ? "From now on you'll sign in with your email and this password." : "Use it next time you sign in, on any device.";
+    $("#pwTitle").textContent = first ? "Створіть пароль" : "Змінити пароль";
+    $("#pwSub").textContent = first ? "Надалі ви входитимете з електронною поштою і цим паролем." : "Використовуйте його для наступного входу на будь-якому пристрої.";
     $("#pwUser").value = email || "";
     $("#pwNew").value = ""; $("#pwRepeat").value = "";
     $("#pwMsg").textContent = ""; $("#pwMsg").classList.remove("ok");
@@ -632,11 +671,11 @@
     const left = cooldownLeft();
     if (left > 0) {
       linkBtn.disabled = true;
-      linkBtn.textContent = `Email me a setup link (again in ${Math.ceil(left / 1000)}s)`;
+      linkBtn.textContent = `Надіслати посилання (знову через ${Math.ceil(left / 1000)} с)`;
       cooldownTimer = setTimeout(tickLogin, 1000);
       return;
     }
-    linkBtn.textContent = "Email me a setup link";
+    linkBtn.textContent = "Надіслати посилання на пошту";
     linkBtn.disabled = !sb || sending || !emailOk;
   }
   // The button only wakes up for a member email, compared by SHA-256 fingerprint so the
@@ -664,9 +703,9 @@
     const { error } = await sb.auth.signInWithPassword({ email, password: loginPassword.value });
     sending = false; tickLogin();
     if (error) {
-      if (error.status === 429) showGate("Too many attempts. Wait a few minutes, then try again.");
-      else if (error.status === 400) showGate("Wrong email or password. Haven't set a password yet? Use the setup link below.");
-      else showGate("Couldn't sign in: " + error.message);
+      if (error.status === 429) showGate("Забагато спроб. Зачекайте кілька хвилин і спробуйте ще раз.");
+      else if (error.status === 400) showGate("Неправильна пошта або пароль. Ще не створили пароль? Скористайтеся посиланням нижче.");
+      else showGate("Не вдалося увійти: " + error.message);
       return;
     }
     loginPassword.value = "";
@@ -679,33 +718,33 @@
     const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
     sending = false;
     if (error) {
-      if (error.status === 429) { startCooldown(LINK_COOLDOWN_MS); showGate("Too many emails right now. Wait a bit, then try again."); }
-      else { tickLogin(); showGate("Couldn't send the link: " + error.message); }
+      if (error.status === 429) { startCooldown(LINK_COOLDOWN_MS); showGate("Забагато листів. Зачекайте трохи і спробуйте ще раз."); }
+      else { tickLogin(); showGate("Не вдалося надіслати посилання: " + error.message); }
       return;
     }
     startCooldown(LINK_COOLDOWN_MS);
-    showGate(`Setup link sent to ${email}. Open it, then choose your password.`, true);
+    showGate(`Посилання надіслано на ${email}. Відкрийте його і створіть пароль.`, true);
   });
 
   $("#pwForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const msg = $("#pwMsg"); msg.classList.remove("ok");
     const p1 = $("#pwNew").value, p2 = $("#pwRepeat").value;
-    if (p1.length < 10) { msg.textContent = "Use at least 10 characters."; return; }
-    if (p1 !== p2) { msg.textContent = "The two passwords don't match."; return; }
+    if (p1.length < 10) { msg.textContent = "Пароль має містити щонайменше 10 символів."; return; }
+    if (p1 !== p2) { msg.textContent = "Паролі не збігаються."; return; }
     const btn = $("#pwSave"); btn.disabled = true;
     const { error } = await sb.auth.updateUser({ password: p1, data: { password_set: true } });
     btn.disabled = false;
     if (error) {
-      if (error.code === "same_password") msg.textContent = "That's your current password. Choose a different one.";
-      else if (error.code === "weak_password") msg.textContent = "That password is too weak. Make it longer or less common.";
-      else if (error.code === "reauthentication_needed" || error.status === 401) msg.textContent = "For safety, sign out and use the setup link to change your password.";
-      else msg.textContent = "Couldn't save the password: " + error.message;
+      if (error.code === "same_password") msg.textContent = "Це ваш поточний пароль. Виберіть інший.";
+      else if (error.code === "weak_password") msg.textContent = "Пароль надто слабкий. Зробіть його довшим або менш поширеним.";
+      else if (error.code === "reauthentication_needed" || error.status === 401) msg.textContent = "З міркувань безпеки вийдіть і змініть пароль через посилання на пошту.";
+      else msg.textContent = "Не вдалося зберегти пароль: " + error.message;
       return;
     }
     $("#pwNew").value = ""; $("#pwRepeat").value = "";
     const { data } = await sb.auth.getSession();
-    toast("Password saved");
+    toast("Пароль збережено");
     if (pwFirst) onSession(data.session); else showApp();
   });
   $("#pwCancel").addEventListener("click", () => showApp());
@@ -721,11 +760,11 @@
     const { data: name, error } = await sb.rpc("member_name");
     if (error || !name) {
       await sb.auth.signOut();
-      showGate(error ? "Couldn't check your access. Try again." : "This account doesn't have access to this list.");
+      showGate(error ? "Не вдалося перевірити доступ. Спробуйте ще раз." : "Цей обліковий запис не має доступу до списку.");
       return;
     }
     me = name;
-    $("#whoName").textContent = "Signed in as " + me;
+    $("#whoName").textContent = "Ви увійшли як " + (NAME[me] || me);
     const meta = session.user.user_metadata || {};
     if (!meta.password_set) { showPwGate(true, session.user.email); return; }
     showApp();
@@ -739,7 +778,7 @@
 
   function boot() {
     if (!window.supabase || !CFG.supabaseUrl || !CFG.supabaseAnonKey || CFG.supabaseAnonKey.startsWith("PASTE")) {
-      showGate("This site isn't connected to its database yet.");
+      showGate("Сайт ще не під’єднаний до бази даних.");
       $("#loginBtn").disabled = true;
       return;
     }
@@ -755,7 +794,7 @@
       seen = true;
       setTimeout(() => onSession(session), 0);
     });
-    if (hashErr) setTimeout(() => showGate(/expired|invalid/i.test(hashErr) ? "That sign-in link has expired. Send a new one." : hashErr), 50);
+    if (hashErr) setTimeout(() => showGate(/expired|invalid/i.test(hashErr) ? "Посилання застаріло. Надішліть нове." : "Помилка входу: " + hashErr), 50);
     setTimeout(async () => { if (!seen) { const { data } = await sb.auth.getSession(); onSession(data.session); } }, 1500);
   }
   boot();

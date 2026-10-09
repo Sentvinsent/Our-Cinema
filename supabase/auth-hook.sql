@@ -14,7 +14,7 @@ begin
   if em in ('aleks@example.com', 'alina@example.com') then
     return '{}'::jsonb;
   end if;
-  return jsonb_build_object('error', jsonb_build_object('http_code', 403, 'message', 'This list is private.'));
+  return jsonb_build_object('error', jsonb_build_object('http_code', 403, 'message', 'Цей список приватний.'));
 end;
 $$;
 

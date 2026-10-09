@@ -296,3 +296,61 @@ tbody tr.is-sel td { background: color-mix(in srgb, var(--accent) 9%, var(--surf
   .row-tools { flex-wrap: nowrap; }
   .trl { padding: 5px 8px; }
 }
+
+/* ---- Film / series badge ---- */
+:root { --movie: #8A4B07; --movie-bg: #F7E8D6; --series: #3346A8; --series-bg: #E2E7FA; }
+@media (prefers-color-scheme: dark) {
+  :root { --movie: #F2B05C; --movie-bg: #3A2A14; --series: #A3B1FF; --series-bg: #252C52; }
+}
+.kind { display: inline-flex; align-items: center; gap: 5px; width: max-content; padding: 3px 8px 3px 6px; border-radius: 999px;
+  font-family: var(--f-mono); font-size: 11px; font-weight: 500; line-height: 1.3; letter-spacing: .06em; text-transform: uppercase; }
+.kind svg { width: 13px; height: 13px; fill: currentColor; flex: none; }
+.kind-movie { color: var(--movie); background: var(--movie-bg); }
+.kind-tv { color: var(--series); background: var(--series-bg); }
+.c-name .kind { margin-bottom: 6px; }
+.suggest .s-m { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.suggest .s-m .kind { font-size: 10px; padding: 2px 6px 2px 5px; }
+
+/* ---- Vote control: one joined Так | Ні switch per person ---- */
+.seg { display: inline-grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.seg .vb { border: 0; border-radius: 0; margin: 0; min-height: 34px; padding: 4px 10px; background: transparent; }
+.seg .vb + .vb { border-left: 1px solid var(--line); }
+.seg .vb.yes.on, .seg .vb.no.on { border-color: var(--line); }
+
+/* ---- Watched as a toggle chip ---- */
+.watch.on { color: var(--yes); }
+
+/* ---- Square icon buttons ---- */
+.iconbtn.sq { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; min-height: 0; min-width: 0; padding: 0; color: var(--muted); }
+.iconbtn.sq svg { width: 17px; height: 17px; fill: currentColor; }
+.iconbtn.sq:hover { color: var(--ink); }
+.iconbtn.sq.del:hover { color: var(--no); border-color: var(--no); }
+
+/* ---- Phone cards ---- */
+.card-head .kind { margin-bottom: 4px; }
+.card-head .title-ua { font-size: 17px; font-weight: 600; line-height: 1.25; color: var(--ink); }
+.card-head .title-en { font-size: 14px; font-weight: 500; color: var(--muted); }
+.card-trailers { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 0; }
+.card-trailers .trl { justify-content: center; }
+.card-actions { display: grid; gap: 10px; }
+.card-votes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.card-votes .vote { display: grid; gap: 6px; min-width: 0; }
+.card-votes .vote-name { font-size: 13px; margin: 0; }
+.card-votes .seg { display: grid; width: 100%; }
+.card-votes .seg .vb { min-height: 44px; font-size: 15px; }
+.card-tools { display: grid; grid-template-columns: minmax(0, 1fr) 44px 44px; gap: 8px; align-items: stretch; }
+.card-tools .watch { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); gap: 10px; font-size: 15px; }
+.card-tools .watch.on { border-color: var(--yes); background: var(--yes-bg); }
+.card-tools .iconbtn.sq { width: 44px; height: 44px; border-radius: 10px; }
+.card-tools .iconbtn.sq svg { width: 19px; height: 19px; }
+@media (max-width: 700px) {
+  .card { grid-template-columns: 84px minmax(0, 1fr); }
+  .card-actions .vote { flex: initial; }
+  .card-tools .watch { flex: initial; }
+}
+
+/* ---- Desktop table controls ---- */
+@media (min-width: 901px) {
+  .c-vote .seg .vb { padding: 4px 9px; min-height: 32px; }
+  .row-tools { gap: 6px; }
+}
