@@ -12,20 +12,41 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Unbounded:wght@500;700&display=swap">
-  <link rel="stylesheet" href="styles.css?v=202610091611">
+  <link rel="stylesheet" href="styles.css?v=202610091618">
 </head>
 <body>
 
-<!-- Login -->
+<!-- Sign in -->
 <main class="gate" id="gate" hidden>
   <form class="gate-card" id="loginForm" autocomplete="on">
     <div class="eyebrow">Admit two · Наше кіно</div>
     <h1>Our Cinema</h1>
-    <p class="sub">Private list for Aleks and Alina. Enter your email and we'll send you a sign-in link.</p>
-    <label class="field"><span>Email</span><input type="email" id="loginEmail" autocomplete="email" required placeholder="you@example.com"></label>
+    <p class="sub">Private list for Aleks and Alina.</p>
+    <label class="field"><span class="label">Email</span><input type="email" id="loginEmail" name="email" autocomplete="username" required placeholder="you@example.com"></label>
+    <label class="field"><span class="label">Password</span><input type="password" id="loginPassword" name="password" autocomplete="current-password"></label>
     <div class="hint" id="loginHint" hidden>Only Aleks's and Alina's emails can sign in.</div>
-    <button class="btn primary" type="submit" id="loginBtn" disabled>Send sign-in link</button>
+    <button class="btn primary" type="submit" id="loginBtn" disabled>Sign in</button>
     <div class="formmsg" id="loginMsg" role="status"></div>
+    <div class="gate-alt">
+      <span>First time here, or forgot your password?</span>
+      <button type="button" class="linkbtn" id="linkBtn" disabled>Email me a setup link</button>
+    </div>
+  </form>
+</main>
+
+<!-- Set or change password -->
+<main class="gate" id="pwGate" hidden>
+  <form class="gate-card" id="pwForm" autocomplete="on">
+    <div class="eyebrow">Admit two · Наше кіно</div>
+    <h1 id="pwTitle">Choose a password</h1>
+    <p class="sub" id="pwSub">From now on you'll sign in with your email and this password.</p>
+    <input type="email" id="pwUser" name="email" autocomplete="username" class="sr" tabindex="-1" aria-hidden="true" readonly>
+    <label class="field"><span class="label">New password</span><input type="password" id="pwNew" name="new-password" autocomplete="new-password" minlength="10" required></label>
+    <label class="field"><span class="label">Repeat password</span><input type="password" id="pwRepeat" autocomplete="new-password" minlength="10" required></label>
+    <div class="hint">At least 10 characters. A password manager can save it for you.</div>
+    <button class="btn primary" type="submit" id="pwSave">Save password</button>
+    <div class="formmsg" id="pwMsg" role="status"></div>
+    <div class="gate-alt"><button type="button" class="linkbtn" id="pwCancel" hidden>Cancel</button><button type="button" class="linkbtn" id="pwSignOut">Sign out</button></div>
   </form>
 </main>
 
@@ -39,7 +60,7 @@
     </div>
     <div class="who">
       <div class="stats" id="stats"></div>
-      <div class="who-row"><span id="whoName"></span><button class="linkbtn" id="logoutBtn" type="button">Sign out</button></div>
+      <div class="who-row"><span id="whoName"></span><button class="linkbtn" id="changePwBtn" type="button">Change password</button><button class="linkbtn" id="logoutBtn" type="button">Sign out</button></div>
     </div>
   </header>
 
@@ -146,7 +167,7 @@
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-<script src="config.js?v=202610091611"></script>
-<script src="app.js?v=202610091611"></script>
+<script src="config.js?v=202610091618"></script>
+<script src="app.js?v=202610091618"></script>
 </body>
 </html>

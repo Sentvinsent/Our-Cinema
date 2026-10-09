@@ -589,17 +589,30 @@
   $("#logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
 
   // ---------- auth ----------
+  // Sign in with email + password. A one-time email link is used only to set the
+  // first password (proves the address is yours) or to reset a forgotten one.
+  const LINK_COOLDOWN_MS = 60000;
+  const loginBtn = $("#loginBtn"), linkBtn = $("#linkBtn"), loginEmail = $("#loginEmail"), loginPassword = $("#loginPassword"), loginHint = $("#loginHint");
+  let emailOk = false, sending = false, cooldownTimer = null, checkSeq = 0, pwFirst = false;
+
+  function hideAll() { $("#app").hidden = true; $("#gate").hidden = true; $("#pwGate").hidden = true; }
   function showGate(msg, ok) {
-    $("#app").hidden = true; $("#gate").hidden = false;
+    hideAll(); $("#gate").hidden = false;
     if (msg != null) { const m = $("#loginMsg"); m.textContent = msg; m.classList.toggle("ok", !!ok); }
   }
-  function showApp() { $("#gate").hidden = true; $("#app").hidden = false; }
+  function showApp() { hideAll(); $("#app").hidden = false; }
+  function showPwGate(first, email) {
+    pwFirst = first;
+    hideAll(); $("#pwGate").hidden = false;
+    $("#pwTitle").textContent = first ? "Choose a password" : "Change password";
+    $("#pwSub").textContent = first ? "From now on you'll sign in with your email and this password." : "Use it next time you sign in, on any device.";
+    $("#pwUser").value = email || "";
+    $("#pwNew").value = ""; $("#pwRepeat").value = "";
+    $("#pwMsg").textContent = ""; $("#pwMsg").classList.remove("ok");
+    $("#pwCancel").hidden = first;
+    setTimeout(() => $("#pwNew").focus(), 50);
+  }
 
-  // Sign-in button: enabled only for a member email (compared by SHA-256 fingerprint,
-  // so the addresses aren't in the public code), then locked for 60 s after each send.
-  const COOLDOWN_MS = 60000;
-  const loginBtn = $("#loginBtn"), loginEmail = $("#loginEmail"), loginHint = $("#loginHint");
-  let emailOk = false, sending = false, cooldownTimer = null, checkSeq = 0;
   function cooldownLeft() {
     let until = 0;
     try { until = Number(localStorage.getItem("oc-login-wait")) || 0; } catch (e) {}
@@ -615,16 +628,19 @@
   }
   function tickLogin() {
     clearTimeout(cooldownTimer);
+    loginBtn.disabled = !sb || sending || !emailOk || !loginPassword.value;
     const left = cooldownLeft();
     if (left > 0) {
-      loginBtn.disabled = true;
-      loginBtn.textContent = `Send again in ${Math.ceil(left / 1000)}s`;
+      linkBtn.disabled = true;
+      linkBtn.textContent = `Email me a setup link (again in ${Math.ceil(left / 1000)}s)`;
       cooldownTimer = setTimeout(tickLogin, 1000);
       return;
     }
-    loginBtn.textContent = "Send sign-in link";
-    loginBtn.disabled = sending || !emailOk || !sb;
+    linkBtn.textContent = "Email me a setup link";
+    linkBtn.disabled = !sb || sending || !emailOk;
   }
+  // The button only wakes up for a member email, compared by SHA-256 fingerprint so the
+  // addresses aren't in the public code. The server enforces membership on its own.
   async function checkEmail() {
     const my = ++checkSeq;
     const v = loginEmail.value.trim().toLowerCase();
@@ -637,21 +653,66 @@
   }
   loginEmail.addEventListener("input", checkEmail);
   loginEmail.addEventListener("change", checkEmail);
+  loginPassword.addEventListener("input", tickLogin);
+  loginPassword.addEventListener("change", tickLogin);
 
   $("#loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (!emailOk || sending || cooldownLeft() > 0) return;
+    if (loginBtn.disabled) return;
+    const email = loginEmail.value.trim().toLowerCase();
+    sending = true; tickLogin();
+    const { error } = await sb.auth.signInWithPassword({ email, password: loginPassword.value });
+    sending = false; tickLogin();
+    if (error) {
+      if (error.status === 429) showGate("Too many attempts. Wait a few minutes, then try again.");
+      else if (error.status === 400) showGate("Wrong email or password. Haven't set a password yet? Use the setup link below.");
+      else showGate("Couldn't sign in: " + error.message);
+      return;
+    }
+    loginPassword.value = "";
+  });
+
+  linkBtn.addEventListener("click", async () => {
+    if (linkBtn.disabled) return;
     const email = loginEmail.value.trim().toLowerCase();
     sending = true; tickLogin();
     const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
     sending = false;
     if (error) {
-      if (error.status === 429) { startCooldown(COOLDOWN_MS); showGate("Too many sign-in emails right now. Wait a bit, then try again."); }
+      if (error.status === 429) { startCooldown(LINK_COOLDOWN_MS); showGate("Too many emails right now. Wait a bit, then try again."); }
       else { tickLogin(); showGate("Couldn't send the link: " + error.message); }
       return;
     }
-    startCooldown(COOLDOWN_MS);
-    showGate(`Link sent to ${email}. Open it on any device to sign in.`, true);
+    startCooldown(LINK_COOLDOWN_MS);
+    showGate(`Setup link sent to ${email}. Open it, then choose your password.`, true);
+  });
+
+  $("#pwForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = $("#pwMsg"); msg.classList.remove("ok");
+    const p1 = $("#pwNew").value, p2 = $("#pwRepeat").value;
+    if (p1.length < 10) { msg.textContent = "Use at least 10 characters."; return; }
+    if (p1 !== p2) { msg.textContent = "The two passwords don't match."; return; }
+    const btn = $("#pwSave"); btn.disabled = true;
+    const { error } = await sb.auth.updateUser({ password: p1, data: { password_set: true } });
+    btn.disabled = false;
+    if (error) {
+      if (error.code === "same_password") msg.textContent = "That's your current password. Choose a different one.";
+      else if (error.code === "weak_password") msg.textContent = "That password is too weak. Make it longer or less common.";
+      else if (error.code === "reauthentication_needed" || error.status === 401) msg.textContent = "For safety, sign out and use the setup link to change your password.";
+      else msg.textContent = "Couldn't save the password: " + error.message;
+      return;
+    }
+    $("#pwNew").value = ""; $("#pwRepeat").value = "";
+    const { data } = await sb.auth.getSession();
+    toast("Password saved");
+    if (pwFirst) onSession(data.session); else showApp();
+  });
+  $("#pwCancel").addEventListener("click", () => showApp());
+  $("#pwSignOut").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
+  $("#changePwBtn").addEventListener("click", async () => {
+    const { data } = await sb.auth.getSession();
+    showPwGate(false, data.session && data.session.user.email);
   });
 
   async function onSession(session) {
@@ -660,11 +721,13 @@
     const { data: name, error } = await sb.rpc("member_name");
     if (error || !name) {
       await sb.auth.signOut();
-      showGate(error ? "Couldn't check your access. Try again." : `${session.user.email} doesn't have access to this list.`);
+      showGate(error ? "Couldn't check your access. Try again." : "This account doesn't have access to this list.");
       return;
     }
     me = name;
     $("#whoName").textContent = "Signed in as " + me;
+    const meta = session.user.user_metadata || {};
+    if (!meta.password_set) { showPwGate(true, session.user.email); return; }
     showApp();
     if (started) return;
     started = true;
