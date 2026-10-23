@@ -42,6 +42,8 @@ create table if not exists public.films (
   poster_path  text not null default '',
   aleks        text not null default '' check (aleks in ('', 'yes', 'no')),
   alina        text not null default '' check (alina in ('', 'yes', 'no')),
+  aleks_rating smallint check (aleks_rating between 1 and 5),
+  alina_rating smallint check (alina_rating between 1 and 5),
   watched      boolean not null default false,
   watched_at   timestamptz,
   match_state  text not null default '',
@@ -83,3 +85,8 @@ select '2 Fast 2 Furious', 'Подвійний форсаж', 2003, 107, '{Actio
        'Колишній поліцейський Браян О''Коннер об''єднується з другом дитинства Роменом Пірсом, щоб під виглядом вуличних гонщиків зупинити маямського наркобарона.',
        'Aleks'
 where not exists (select 1 from public.films where name_en = '2 Fast 2 Furious');
+
+-- Added later: star ratings for watched titles (safe to re-run).
+alter table public.films
+  add column if not exists aleks_rating smallint check (aleks_rating between 1 and 5),
+  add column if not exists alina_rating smallint check (alina_rating between 1 and 5);

@@ -233,6 +233,29 @@
   function watchHTML(f, prefix) {
     return `<label class="watch${f.watched ? " on" : ""}"><input type="checkbox" id="${prefix}-w-${f.id}" data-act="watched" data-id="${f.id}" ${f.watched ? "checked" : ""}><span>Переглянуто</span></label>`;
   }
+  // Star ratings (1–5) replace the Так/Ні votes once a title is watched.
+  const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.8 5.9 6.5.8-4.8 4.5 1.2 6.4L12 17.1l-5.7 3.1 1.2-6.4-4.8-4.5 6.5-.8z"/></svg>';
+  const STAR_WORD = ["зірка", "зірки", "зірок"];
+  function starsHTML(f, who, showName) {
+    const r = f[who + "_rating"] || 0, Who = who === "aleks" ? "Алекс" : "Аліна";
+    let s = "";
+    for (let i = 1; i <= 5; i++) {
+      s += `<button type="button" class="st${i <= r ? " on" : ""}" data-act="rate" data-id="${f.id}" data-who="${who}" data-val="${i}" role="radio" aria-checked="${i === r}" aria-label="${i} ${plural(i, STAR_WORD)}">${STAR}</button>`;
+    }
+    return `<div class="vote rate ${who}">${showName ? `<span class="vote-name">${Who}</span>` : ""}`
+      + `<div class="stars" role="radiogroup" aria-label="Оцінка: ${Who}">${s}</div></div>`;
+  }
+  function scoreOf(f) {
+    const rs = [f.aleks_rating, f.alina_rating].filter((x) => x >= 1);
+    return rs.length ? rs.reduce((a, b) => a + b, 0) / rs.length : null;
+  }
+  function scoreHTML(f) {
+    const sc = f.watched ? scoreOf(f) : null;
+    if (sc == null) return "";
+    const txt = (Math.round(sc * 10) / 10).toString().replace(".", ",");
+    return `<span class="score" title="Середня оцінка">${STAR}${txt}</span>`;
+  }
+  const rateOrVote = (f, who, showName) => f.watched ? starsHTML(f, who, showName) : voteHTML(f, who, showName);
   const PENCIL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm17.7-10.2a1 1 0 0 0 0-1.42l-2.33-2.33a1 1 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
   function editBtnHTML(f, iconOnly) {
     return iconOnly
@@ -251,14 +274,14 @@
     return `<tr data-key="${f.id}"${selected.has(f.id) ? ' class="is-sel"' : ""}>
       <td class="c-sel">${selHTML(f, "t")}</td>
       <td class="c-poster">${posterHTML(f)}</td>
-      <td class="c-name">${kindHTML(f)}<div class="title-en">${f.name_en ? esc(f.name_en) : '<span class="dim">—</span>'}</div>${metaHTML(f)}${fillHTML(f)}</td>
+      <td class="c-name"><div class="badges">${kindHTML(f)}${scoreHTML(f)}</div><div class="title-en">${f.name_en ? esc(f.name_en) : '<span class="dim">—</span>'}</div>${metaHTML(f)}${fillHTML(f)}</td>
       <td class="c-name"><div class="title-ua" lang="uk">${f.name_ua ? esc(f.name_ua) : '<span class="dim">—</span>'}</div></td>
       <td class="c-desc">${descHTML(f, "en")}</td>
       <td class="c-desc">${descHTML(f, "ua")}</td>
       <td class="c-tr">${trailerHTML(f, "en", "Англ.")}</td>
       <td class="c-tr">${trailerHTML(f, "ua", "Укр.")}</td>
-      <td class="c-vote">${voteHTML(f, "aleks", false)}</td>
-      <td class="c-vote">${voteHTML(f, "alina", false)}</td>
+      <td class="c-vote">${rateOrVote(f, "aleks", false)}</td>
+      <td class="c-vote">${rateOrVote(f, "alina", false)}</td>
       <td class="c-watch">${watchHTML(f, "t")}</td>
       <td class="c-edit"><div class="row-tools">${editBtnHTML(f, true)}${delBtnHTML(f)}</div></td>
     </tr>`;
@@ -271,7 +294,7 @@
       <label class="card-sel">${selHTML(f, "c")}</label>
       <div class="card-poster">${posterHTML(f)}</div>
       <div class="card-head">
-        ${kindHTML(f)}
+        <div class="badges">${kindHTML(f)}${scoreHTML(f)}</div>
         <div class="title-ua" lang="uk">${esc(main)}</div>
         ${second ? `<div class="title-en" lang="en">${esc(second)}</div>` : ""}
         ${metaHTML(f)}${fillHTML(f)}
@@ -283,8 +306,8 @@
       </div>` : ""}
       <div class="card-actions">
         <div class="card-votes">
-          ${voteHTML(f, "aleks", true)}
-          ${voteHTML(f, "alina", true)}
+          ${rateOrVote(f, "aleks", true)}
+          ${rateOrVote(f, "alina", true)}
         </div>
         <div class="card-tools">
           ${watchHTML(f, "c")}
@@ -613,6 +636,13 @@
       // small press feedback on the re-rendered switch (only if the film stays in this list)
       if (motionOK()) requestAnimationFrame(() => document.querySelectorAll(`[data-act="vote"][data-id="${id}"][data-who="${who}"].on`)
         .forEach((b) => b.animate([{ transform: "scale(.92)" }, { transform: "none" }], { duration: 180, easing: EASE })));
+    }
+    else if (act === "rate") {
+      const f = films.find((x) => x.id === id); if (!f) return;
+      const col = el.dataset.who + "_rating", val = Number(el.dataset.val);
+      patchFilm(id, { [col]: f[col] === val ? null : val }); // tapping the current star again clears it
+      if (motionOK()) requestAnimationFrame(() => document.querySelectorAll(`[data-act="rate"][data-id="${id}"][data-who="${el.dataset.who}"][data-val="${val}"]`)
+        .forEach((b) => b.animate([{ transform: "scale(.8)" }, { transform: "scale(1.15)" }, { transform: "none" }], { duration: 220, easing: EASE })));
     }
     else if (act === "edit") openEditor(id);
     else if (act === "delete") deleteFilms([id]);
