@@ -233,17 +233,21 @@
   function watchHTML(f, prefix) {
     return `<label class="watch${f.watched ? " on" : ""}"><input type="checkbox" id="${prefix}-w-${f.id}" data-act="watched" data-id="${f.id}" ${f.watched ? "checked" : ""}><span>Переглянуто</span></label>`;
   }
-  // Star ratings (1–5) replace the Так/Ні votes once a title is watched.
+  // Star ratings (1–10) replace the Так/Ні votes once a title is watched.
+  // Ten stars sit in two rows of five so they stay big enough to tap on a phone.
   const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.8 5.9 6.5.8-4.8 4.5 1.2 6.4L12 17.1l-5.7 3.1 1.2-6.4-4.8-4.5 6.5-.8z"/></svg>';
   const STAR_WORD = ["зірка", "зірки", "зірок"];
   function starsHTML(f, who, showName) {
     const r = f[who + "_rating"] || 0, Who = who === "aleks" ? "Алекс" : "Аліна";
     let s = "";
-    for (let i = 1; i <= 5; i++) {
-      s += `<button type="button" class="st${i <= r ? " on" : ""}" data-act="rate" data-id="${f.id}" data-who="${who}" data-val="${i}" role="radio" aria-checked="${i === r}" aria-label="${i} ${plural(i, STAR_WORD)}">${STAR}</button>`;
+    for (let i = 1; i <= 10; i++) {
+      s += `<button type="button" class="st${i <= r ? " on" : ""}" data-act="rate" data-id="${f.id}" data-who="${who}" data-val="${i}" role="radio" aria-checked="${i === r}" aria-label="${i} ${plural(i, STAR_WORD)} з 10">${STAR}</button>`;
     }
-    return `<div class="vote rate ${who}">${showName ? `<span class="vote-name">${Who}</span>` : ""}`
-      + `<div class="stars" role="radiogroup" aria-label="Оцінка: ${Who}">${s}</div></div>`;
+    const val = `<span class="rate-val${r ? "" : " none"}">${r ? `${r}<small>/10</small>` : "—<small>/10</small>"}</span>`;
+    return `<div class="vote rate ${who}">`
+      + (showName ? `<div class="rate-head"><span class="vote-name">${Who}</span>${val}</div>` : "")
+      + `<div class="stars" role="radiogroup" aria-label="Оцінка: ${Who}">${s}</div>`
+      + (showName ? "" : val) + `</div>`;
   }
   function scoreOf(f) {
     const rs = [f.aleks_rating, f.alina_rating].filter((x) => x >= 1);
@@ -253,7 +257,7 @@
     const sc = f.watched ? scoreOf(f) : null;
     if (sc == null) return "";
     const txt = (Math.round(sc * 10) / 10).toString().replace(".", ",");
-    return `<span class="score" title="Середня оцінка">${STAR}${txt}</span>`;
+    return `<span class="score" title="Середня оцінка з 10">${STAR}${txt}</span>`;
   }
   const rateOrVote = (f, who, showName) => f.watched ? starsHTML(f, who, showName) : voteHTML(f, who, showName);
   const PENCIL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm17.7-10.2a1 1 0 0 0 0-1.42l-2.33-2.33a1 1 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
