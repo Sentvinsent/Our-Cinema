@@ -13,7 +13,7 @@ A private, shared watchlist for Aleks and Alina.
 - Each film has Yes/No votes for Aleks and Alina and a Watched checkbox. The tab follows the votes:
   both Yes → Agreed, one No → Declined by that person, both No → Declined by both. Watched overrides all.
 - Once a title is marked Watched, the Yes/No votes turn into 1–10 star ratings for Aleks and Alina
-  (two rows of five stars; tap the same star again to clear it); the average shows as a ★ badge next to the title.
+  (one row of ten stars each; tap the same star again to clear it); the average shows as a ★ badge next to the title.
 - Changes show up live on the other person's device.
 - Shows 10 items at a time with a "show more" button; filter by films or series.
 - Table on desktop, cards on phones; dark glass theme in black, graphite and aquamarine (`glass.css`); short animations (off when the device asks for reduced motion).

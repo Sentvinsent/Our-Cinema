@@ -234,7 +234,7 @@
     return `<label class="watch${f.watched ? " on" : ""}"><input type="checkbox" id="${prefix}-w-${f.id}" data-act="watched" data-id="${f.id}" ${f.watched ? "checked" : ""}><span>Переглянуто</span></label>`;
   }
   // Star ratings (1–10) replace the Так/Ні votes once a title is watched.
-  // Ten stars sit in two rows of five so they stay big enough to tap on a phone.
+  // One row of ten stars per person; on phones the two people stack, so each row gets the full card width.
   const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.8 5.9 6.5.8-4.8 4.5 1.2 6.4L12 17.1l-5.7 3.1 1.2-6.4-4.8-4.5 6.5-.8z"/></svg>';
   const STAR_WORD = ["зірка", "зірки", "зірок"];
   function starsHTML(f, who, showName) {
@@ -309,7 +309,7 @@
         ${f.desc_en ? `<div lang="en"><span class="lang">Англ.</span>${descHTML(f, "en")}</div>` : ""}
       </div>` : ""}
       <div class="card-actions">
-        <div class="card-votes">
+        <div class="card-votes${f.watched ? " is-rate" : ""}">
           ${rateOrVote(f, "aleks", true)}
           ${rateOrVote(f, "alina", true)}
         </div>
@@ -394,6 +394,7 @@
       return;
     }
     empty.hidden = true; $("#tableWrap").hidden = false; $("#cards").hidden = false;
+    $("#tableWrap").classList.toggle("tab-watched", tab === "watched"); // star rows need a little more room
     $("#rows").innerHTML = page.map(rowHTML).join("");
     $("#cards").innerHTML = page.map(cardHTML).join("");
     play(before);
