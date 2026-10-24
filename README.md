@@ -6,7 +6,7 @@ A private, shared watchlist for Aleks and Alina.
 
 ## What it does
 - Lists: Proposed, Agreed, Watching, Watched, Recommended and Declined (with an Everyone / Aleks / Alina / Both filter).
-  Tabs on desktop; on phones a single list button opens a panel with all lists and their counts.
+  Tabs on desktop; on phones a list button in a bar at the bottom of the screen opens a panel with all lists and their counts.
 - Type a title in English or Ukrainian and pick it from the TMDB suggestions. The site fills in:
   both names, year, runtime, genres, EN and UA descriptions, the poster, and the YouTube
   links for the English trailer and (when TMDB lists one) the Ukrainian trailer.

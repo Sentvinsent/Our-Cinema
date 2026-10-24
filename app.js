@@ -518,6 +518,7 @@
     $("#listCount").textContent = showN(tab) ? counts[tab] : "";
     $("#listCount").hidden = !showN(tab);
     $("#listDot").hidden = !Object.keys(fresh).some((k) => k !== tab);
+    $("#listBtn").setAttribute("aria-label", `Список: ${cur ? cur[1] : ""}${showN(tab) ? ", " + counts[tab] : ""}. Змінити список`);
     $("#listGrid").innerHTML = TABS.map(([k, label]) =>
       `<button type="button" class="ls-item" data-tab="${k}" aria-current="${k === tab}">`
       + `<span class="ls-n">${showN(k) ? counts[k] : "…"}</span><span class="ls-l">${label}</span>`

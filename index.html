@@ -21,8 +21,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Unbounded:wght@500;700&display=swap">
-  <link rel="stylesheet" href="styles.css?v=202610240410">
-  <link rel="stylesheet" href="glass.css?v=202610240410">
+  <link rel="stylesheet" href="styles.css?v=202610240415">
+  <link rel="stylesheet" href="glass.css?v=202610240415">
 </head>
 <body>
 
@@ -79,11 +79,6 @@
       </div>
     </div>
     <nav class="tabs" id="tabs" role="tablist" aria-label="Списки"></nav>
-    <button type="button" class="listbtn" id="listBtn" aria-haspopup="dialog" aria-controls="listSheet" aria-label="Вибрати список">
-      <svg class="lb-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2z"/></svg>
-      <span class="lb-label" id="listLabel"></span><span class="n" id="listCount"></span><span class="tdot" id="listDot" hidden></span>
-      <svg class="lb-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
-    </button>
   </header>
 
   <form class="add" id="addForm" autocomplete="off">
@@ -141,6 +136,15 @@
     <span class="more-info" id="pageInfo"></span>
   </div>
   <footer class="credit">Дані та зображення фільмів — TMDB. <span lang="en">This product uses the TMDB API but is not endorsed or certified by TMDB.</span></footer>
+
+  <!-- Phones: list picker fixed at the bottom of the screen -->
+  <nav class="listbar" id="listBar" aria-label="Списки">
+    <button type="button" class="listbtn" id="listBtn" aria-haspopup="dialog" aria-controls="listSheet" aria-label="Вибрати список">
+      <svg class="lb-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2z"/></svg>
+      <span class="lb-label" id="listLabel"></span><span class="n" id="listCount"></span><span class="tdot" id="listDot" hidden></span>
+      <svg class="lb-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+    </button>
+  </nav>
 </div>
 
 <!-- Editor -->
@@ -234,7 +238,7 @@
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-<script src="config.js?v=202610240410"></script>
-<script src="app.js?v=202610240410"></script>
+<script src="config.js?v=202610240415"></script>
+<script src="app.js?v=202610240415"></script>
 </body>
 </html>

@@ -697,3 +697,19 @@ th.c-sel { padding-top: 10px; }
   .declf { display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; }
   .declf button { justify-content: center; padding: 9px 4px; font-size: 14px; }
 }
+
+/* ===== Phones: the list picker lives in a bar at the bottom (thumb reach) ===== */
+.listbar { display: none; }
+@media (max-width: 700px) {
+  .listbar { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 16;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+    background: rgba(10, 12, 13, .9); border-top: 1px solid var(--line);
+    -webkit-backdrop-filter: saturate(140%) blur(18px); backdrop-filter: saturate(140%) blur(18px);
+    transition: transform .22s cubic-bezier(.2, .8, .2, 1); }
+  body.has-bulk .listbar { transform: translateY(110%); }  /* the selection bar takes its place */
+  #app.wrap { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  .toast { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+  body.has-bulk .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  .listbtn { min-height: 48px; }
+}
+@media (max-width: 700px) and (prefers-reduced-motion: reduce) { .listbar { transition: none; } }
