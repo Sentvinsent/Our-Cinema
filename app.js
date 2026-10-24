@@ -101,7 +101,8 @@
     return TABS.some((x) => x[0] === k) ? k : null;
   }
   try { const t = tabFromKey(localStorage.getItem("oc-tab")); if (t) tab = t; } catch (e) {}
-  { const t = tabFromKey(location.hash.slice(1)); if (t) tab = t; }
+  const hashTab = tabFromKey(location.hash.slice(1));
+  if (hashTab) tab = hashTab;
 
   // ---------- helpers ----------
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -289,10 +290,14 @@
     if (!url) return f.tmdb_id ? `<span class="none">${T(which === "ua" ? "Українського трейлера на TMDB немає" : "Трейлера на TMDB немає")}</span>` : '<span class="dim">—</span>';
     return `<button type="button" class="trl" data-act="play" data-id="${f.id}" data-which="${which}">${PLAY}<span>${esc(label)}</span></button>`;
   }
+  // poster picture only (cards, details); posterHTML wraps it in a button for the table
+  function posterImg(f, size) {
+    const t = titleOf(f), src = posterSrc(f.poster_path, size || "w185");
+    return src ? `<img src="${esc(src)}" alt="" loading="lazy">`
+      : `<span class="pg" style="--h:${hash(t) % 360}"><span class="pg-t">${esc(t)}</span><span class="pg-y">${esc(f.year || "")}</span></span>`;
+  }
   function posterHTML(f) {
-    const t = titleOf(f), src = posterSrc(f.poster_path, "w185");
-    if (src) return `<button class="poster" data-act="edit" data-id="${f.id}" aria-label="${T("Редагувати: {t}", { t: esc(t) })}"><img src="${esc(src)}" alt="" loading="lazy"></button>`;
-    return `<button class="poster" data-act="edit" data-id="${f.id}" aria-label="${T("Редагувати: {t}", { t: esc(t) })}"><span class="pg" style="--h:${hash(t) % 360}"><span class="pg-t">${esc(t)}</span><span class="pg-y">${esc(f.year || "")}</span></span></button>`;
+    return `<button class="poster" data-act="open" data-id="${f.id}" aria-label="${T("Деталі: {t}", { t: esc(titleOf(f)) })}">${posterImg(f)}</button>`;
   }
   function metaHTML(f) {
     const bits = [];
@@ -360,10 +365,11 @@
   const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6L20.1 8.4 18.7 7z"/></svg>';
   const CROSS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6 10.6 12 5 6.4z"/></svg>';
   // mode "row": label + chips with logo and name (cards, picker); "icons": logos only (narrow table column)
-  function provHTML(f, mode = "row") {
+  function provHTML(f, mode = "row", quiet = false) {
     const p = f.providers;
     if (!p || f.watched) return "";
     const subs = p.sub || [];
+    if (quiet && !subs.length) return "";
     const label = mode === "row" ? `<span class="prov-l">${T("Де дивитись")}</span>` : "";
     if (!subs.length) return `<div class="prov prov-${mode}">${label}<span class="ptag none">${T(p.paid ? "Лише оренда або купівля" : "Немає на стрімінгах у Польщі")}</span></div>`;
     const top = subs.slice(0, mode === "icons" ? 5 : 4), more = subs.length - top.length;
@@ -472,7 +478,7 @@
   function rowHTML(f) {
     return `<tr data-key="${f.id}">
       <td class="c-poster">${posterHTML(f)}</td>
-      <td class="c-name"><div class="badges">${kindHTML(f)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}</div><div class="title-en">${f.name_en ? esc(f.name_en) : '<span class="dim">—</span>'}</div>${metaHTML(f)}${fillHTML(f)}</td>
+      <td class="c-name"><div class="badges">${kindHTML(f)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}</div><div class="title-en tlink" data-act="open" data-id="${f.id}" role="button" tabindex="0">${f.name_en ? esc(f.name_en) : '<span class="dim">—</span>'}</div>${metaHTML(f)}${fillHTML(f)}</td>
       <td class="c-name"><div class="title-ua" lang="uk">${f.name_ua ? esc(f.name_ua) : '<span class="dim">—</span>'}</div>${provHTML(f, "icons")}${startHTML(f)}</td>
       <td class="c-desc">${descHTML(f, "en")}</td>
       <td class="c-desc">${descHTML(f, "ua")}</td>
@@ -489,36 +495,131 @@
     const ua = f.trailer_ua ? trailerHTML(f, "ua", T("Трейлер укр.")) : "", en = f.trailer_en ? trailerHTML(f, "en", T("Трейлер англ.")) : "";
     return isEn() ? en + ua : ua + en;
   }
+  const DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6zm6 0a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6zm6 0a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6z"/></svg>';
+  // Compact card: tap the top part for details; below it, the one thing this list is for.
   function cardHTML(f) {
-    const tr = trailersHTML(f);
-    const main = titleOf(f), second = otherTitle(f);
-    return `<article data-key="${f.id}" class="card${f.media_type === "tv" ? " is-tv" : ""}">
-      <div class="card-poster">${posterHTML(f)}</div>
-      <div class="card-head">
-        <div class="badges">${kindHTML(f)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}${wantHTML(f)}</div>
-        <div class="title-ua">${esc(main)}</div>
-        ${second ? `<div class="title-en">${esc(second)}</div>` : ""}
-        ${metaHTML(f)}${fillHTML(f)}
-      </div>
-      ${provHTML(f) ? `<div class="card-prov">${provHTML(f)}</div>` : ""}
-      ${progressHTML(f) ? `<div class="card-prog">${progressHTML(f)}</div>` : ""}
-      ${tr ? `<div class="card-trailers">${tr}</div>` : ""}
-      ${f.desc_en || f.desc_ua ? `<div class="card-desc">
-        ${(isEn() ? ["en", "ua"] : ["ua", "en"]).map((l) => (l === "ua" ? f.desc_ua : f.desc_en)
-          ? `<div${l === "en" ? ' lang="en"' : ""}><span class="lang">${T(l === "ua" ? "Укр." : "Англ.")}</span>${descHTML(f, l)}</div>` : "").join("")}
-      </div>` : ""}
-      ${startHTML(f) ? `<div class="card-start">${startHTML(f)}</div>` : ""}
-      <div class="card-actions">
-        <div class="card-votes${f.watched ? " is-rate" : " is-mine"}">
-          ${f.watched ? rateOrVote(f, myKey(), true) + rateOrVote(f, theirKey(), true) : voteHTML(f, myKey(), true)}
+    const t = titleOf(f), second = otherTitle(f);
+    return `<article data-key="${f.id}" class="card cc${f.media_type === "tv" ? " is-tv" : ""}">
+      <div class="cc-main" data-act="open" data-id="${f.id}" role="button" tabindex="0" aria-label="${T("Деталі: {t}", { t: esc(t) })}">
+        <div class="cc-poster">${posterImg(f)}</div>
+        <div class="cc-info">
+          <div class="badges">${kindHTML(f)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}${wantHTML(f)}</div>
+          <div class="cc-title">${esc(t)}</div>
+          ${second ? `<div class="cc-sub">${esc(second)}</div>` : ""}
+          ${metaHTML(f)}${fillHTML(f)}
+          ${provHTML(f, "icons", true)}
         </div>
-        <div class="card-tools">
-          ${watchHTML(f, "c")}
-          ${editBtnHTML(f, true)}
-          ${delBtnHTML(f)}
-        </div>
+        <span class="cc-more">${DOTS}</span>
       </div>
+      <div class="cc-act">${actionHTML(f)}</div>
     </article>`;
+  }
+  function actionHTML(f) {
+    const tb = tabOf(f);
+    if (tb === "watched") return `<div class="card-votes is-rate">${starsHTML(f, myKey(), true)}${starsHTML(f, theirKey(), true)}</div>`;
+    if (tb === "watching") return compactProgHTML(f);
+    if (tb === "agreed") return f.media_type === "tv"
+      ? `<button type="button" class="btn primary cc-btn" data-act="start" data-id="${f.id}">${PLAY}${T("Почали дивитись")}</button>`
+      : `<button type="button" class="btn primary cc-btn" data-act="mark-watched" data-id="${f.id}">${CHECK}${T("Переглянули")}</button>`;
+    return voteHTML(f, myKey(), true);
+  }
+  function compactProgHTML(f) {
+    const { s: cs, e: ce } = progOf(f), ti = f.tv_info || {};
+    const cur = (ti.seasons || []).find((x) => x.s === cs), total = cur ? cur.e : null;
+    const pct = total ? Math.min(100, Math.round(((Math.min(ce, total + 1) - 1) / total) * 100)) : 0;
+    const cu = caughtUp(f), ended = /ended|canceled/i.test(ti.status || "");
+    const btn = cu && ended ? `<button type="button" class="btn primary cc-mini" data-act="finish" data-id="${f.id}">${CHECK}${T("Усе")}</button>`
+      : cu ? "" : `<button type="button" class="btn primary cc-mini" data-act="ep-done" data-id="${f.id}">${CHECK}${T("Переглянули")}</button>`;
+    const note = cu ? (ti.next ? T("Наступна серія вийде {d}.", { d: fmtDate(ti.next.d) }) : T("Нових серій поки не оголошено.")) : "";
+    return `<div class="cc-prog">
+      <div class="cc-prog-top"><span class="cc-prog-l">${cu ? T("Ви наздогнали серіал.") : T("Далі: сезон {s}, серія {e}", { s: cs, e: ce })}${total && !cu ? ` <small>${T("з {n}", { n: total })}</small>` : ""}</span>${btn}</div>
+      ${total ? `<div class="prog-bar" aria-hidden="true"><span style="width:${cu ? 100 : pct}%"></span></div>` : ""}
+      ${note ? `<div class="cc-note">${note}</div>` : ""}
+    </div>`;
+  }
+
+  // ---------- details panel (tap a card) ----------
+  let dtId = null, dtLang = null;
+  function detailsHTML(f) {
+    const t = titleOf(f), second = otherTitle(f), p = f.providers;
+    const descs = { ua: f.desc_ua, en: f.desc_en }, both = !!(f.desc_ua && f.desc_en);
+    const l = dtLang && descs[dtLang] ? dtLang : isEn() ? (f.desc_en ? "en" : "ua") : (f.desc_ua ? "ua" : "en");
+    const prov = !p || f.watched ? "" : (p.sub || []).length ? provHTML(f)
+      : `<div class="dt-none">${T(p.paid ? "Лише оренда або купівля" : "Немає на стрімінгах у Польщі")}</div>`;
+    const tr = trailersHTML(f);
+    let acts = "";
+    if (f.watched) acts = `<div class="card-votes is-rate">${starsHTML(f, myKey(), true)}${starsHTML(f, theirKey(), true)}</div>`;
+    else acts = voteHTML(f, myKey(), true);
+    const prog = progressHTML(f), start = startHTML(f);
+    return `
+      <button type="button" class="iconbtn sq dt-x" data-act="dt-close" aria-label="${T("Закрити")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6 10.6 12 5 6.4z"/></svg></button>
+      <div class="dt-head">
+        <div class="dt-poster">${posterImg(f, "w342")}</div>
+        <div class="dt-info">
+          <div class="badges">${kindHTML(f)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}${wantHTML(f)}</div>
+          <h2 class="dt-title" id="dtTitle">${esc(t)}</h2>
+          ${second ? `<div class="dt-sub">${esc(second)}</div>` : ""}
+          ${metaHTML(f)}
+        </div>
+      </div>
+      ${prov}
+      ${tr ? `<div class="dt-trailers">${tr}</div>` : ""}
+      ${descs[l] ? `<div class="dt-desc">
+        ${both ? `<div class="dt-langs" role="group" aria-label="${T("Мова опису")}">${["ua", "en"].map((x) =>
+          `<button type="button" data-act="dt-lang" data-l="${x}" aria-pressed="${x === l}">${T(x === "ua" ? "Укр." : "Англ.")}</button>`).join("")}</div>` : ""}
+        <p lang="${l === "en" ? "en" : "uk"}">${esc(descs[l])}</p>
+      </div>` : ""}
+      <div class="dt-acts">${acts}</div>
+      ${prog ? `<div class="dt-prog">${prog}</div>` : start ? `<div class="dt-start">${start}</div>` : ""}
+      <div class="dt-foot">
+        ${watchHTML(f, "d")}
+        <button type="button" class="iconbtn sq" data-act="edit" data-id="${f.id}" aria-label="${T("Редагувати")}" title="${T("Редагувати")}">${PENCIL}</button>
+        <button type="button" class="iconbtn sq del" data-act="delete" data-id="${f.id}" aria-label="${T("Видалити")}" title="${T("Видалити")}">${TRASH}</button>
+      </div>`;
+  }
+  function openDetails(id) {
+    const f = films.find((x) => x.id === id); if (!f) return;
+    dtId = id; dtLang = null;
+    $("#dtBody").innerHTML = detailsHTML(f);
+    $("#details").classList.toggle("as-sheet", window.matchMedia("(max-width: 700px)").matches);
+    openOverlay("#details");
+    $("#details .dt-box").scrollTop = 0;
+  }
+  function refreshDetails() {
+    if (!dtId || $("#details").hidden) return;
+    const f = films.find((x) => x.id === dtId);
+    if (!f) { closeDetails(); return; }
+    const box = $("#details .dt-box"), top = box.scrollTop;
+    $("#dtBody").innerHTML = detailsHTML(f);
+    box.scrollTop = top;
+  }
+  function closeDetails() { if (!$("#details").hidden) closeOverlay("#details"); dtId = null; }
+
+  // ---------- small feedback: vibration on Android, a burst when you both say Так ----------
+  const buzz = (pattern) => { try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {} };
+  function celebrate(x, y) {
+    buzz([20, 60, 30]);
+    if (!motionOK()) return;
+    const layer = document.createElement("div");
+    layer.className = "burst"; layer.setAttribute("aria-hidden", "true");
+    document.body.append(layer);
+    const colors = ["#5CE5C8", "#EDEFEF", "#9DF2DF", "#2FBFA3"];
+    for (let i = 0; i < 30; i++) {
+      const p = document.createElement("i");
+      p.style.left = x + "px"; p.style.top = y + "px"; p.style.background = colors[i % colors.length];
+      if (i % 3 === 0) p.style.borderRadius = "50%";
+      layer.append(p);
+      const a = Math.random() * Math.PI * 2, d = 70 + Math.random() * 150;
+      p.animate([
+        { transform: "translate(-50%, -50%) scale(1)", opacity: 1 },
+        { transform: `translate(calc(-50% + ${Math.cos(a) * d}px), calc(-50% + ${Math.sin(a) * d + 70}px)) scale(.5) rotate(${Math.random() * 540}deg)`, opacity: 0 },
+      ], { duration: 650 + Math.random() * 450, easing: "cubic-bezier(.2,.7,.3,1)", fill: "forwards" });
+    }
+    setTimeout(() => layer.remove(), 1300);
+  }
+  function matchNow(f, x, y) {
+    celebrate(x, y);
+    toast(T("Збіг! {t} → «Погоджені»", { t: q2(titleOf(f)) }), { label: T("Відкрити"), run: () => selectTab("agreed") });
   }
 
   const kindOK = (f) => kind === "all" || (kind === "tv" ? f.media_type === "tv" : f.media_type !== "tv");
@@ -587,6 +688,7 @@
     document.querySelectorAll("#kindFilter [data-kind]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.kind === kind)));
     if (!loaded) return;
     setStatus("");
+    renderBanner();
     if (tab === "recs") { renderRecs(before); return; }
 
     const q = norm(query);
@@ -619,25 +721,139 @@
     }
     empty.hidden = true; $("#tableWrap").hidden = false; $("#cards").hidden = false;
     $("#tableWrap").classList.toggle("tab-watched", tab === "watched"); // star rows need a little more room
-    // section headers in Запропоновані: "waiting for your vote" / "waiting for your partner"
-    let rowsH = "", cardsH = "", lastG = null;
+    // Запропоновані: a short summary on top, and a divider where "waiting for your partner" starts
+    let rowsH = "", cardsH = "", prevMine = null;
     const mineN = list.filter((f) => !f[myKey()]).length, theirsN = list.length - mineN;
     for (const f of page) {
-      if (tab === "proposed") {
-        const g = f[myKey()] ? "theirs" : "mine";
-        if (g !== lastG) {
-          const label = g === "mine" ? `${T("Чекає на ваш голос")} · ${mineN}` : `${T(partner() === "Alina" ? "Чекає на Аліну" : "Чекає на Алекса")} · ${theirsN}`;
-          rowsH += `<tr class="grp"><td colspan="12">${label}</td></tr>`;
-          cardsH += `<div class="grp">${label}</div>`;
-          lastG = g;
-        }
+      const mine = !f[myKey()];
+      if (tab === "proposed" && !mine && prevMine === true) {
+        const label = `${T(partner() === "Alina" ? "Чекає на Аліну" : "Чекає на Алекса")} · ${theirsN}`;
+        rowsH += `<tr class="grp"><td colspan="12">${label}</td></tr>`;
+        cardsH += `<div class="grp">${label}</div>`;
       }
+      prevMine = mine;
       rowsH += rowHTML(f); cardsH += cardHTML(f);
     }
     $("#rows").innerHTML = rowsH;
     $("#cards").innerHTML = cardsH;
+    refreshDetails();
     play(before);
   }
+  // ---------- summary on top of Запропоновані ----------
+  const needsMyVote = (f) => tabOf(f) === "proposed" && !f[myKey()] && kindOK(f);
+  function renderBanner() {
+    const b = $("#voteBanner");
+    if (tab !== "proposed" || query) { b.hidden = true; return; }
+    const need = films.filter(needsMyVote).length;
+    const waiting = films.filter((f) => tabOf(f) === "proposed" && f[myKey()] && kindOK(f)).length;
+    const waitTxt = T(partner() === "Alina" ? "Чекають на Аліну: {n}" : "Чекають на Алекса: {n}", { n: waiting });
+    if (need) {
+      b.innerHTML = `<div class="vbn-text"><b>${T("Чекають на твій голос: {n}", { n: need })}</b>${waiting ? `<span>${waitTxt}</span>` : ""}</div>`
+        + `<button type="button" class="btn primary vbn-go" data-act="swipe">${HEART}${T("Голосувати")}</button>`;
+    } else if (waiting) {
+      b.innerHTML = `<div class="vbn-text"><b>${T("На твій голос нічого не чекає")}</b><span>${waitTxt}</span></div>`;
+    } else { b.hidden = true; return; }
+    b.classList.toggle("calm", !need);
+    b.hidden = false;
+  }
+
+  // ---------- swipe voting: one title at a time, right = Так, left = Ні ----------
+  let swQueue = [], swPos = 0, swDone = 0, swBusy = false;
+  function openSwipe() {
+    swQueue = films.filter(needsMyVote)
+      .sort((a, b) => (b[theirKey()] === "yes") - (a[theirKey()] === "yes") || Date.parse(b.created_at) - Date.parse(a.created_at))
+      .map((f) => f.id);
+    swPos = 0; swDone = 0;
+    openOverlay("#swipe");
+    showSwipeCard();
+  }
+  function closeSwipe() { if (!$("#swipe").hidden) closeOverlay("#swipe"); }
+  function swipeCardHTML(f) {
+    const t = titleOf(f), second = otherTitle(f), desc = isEn() ? f.desc_en || f.desc_ua : f.desc_ua || f.desc_en;
+    return `<div class="sw-card" id="swCard" data-id="${f.id}">
+      <div class="sw-poster">${posterImg(f, "w500")}<span class="sw-stamp yes">${T("Так")}</span><span class="sw-stamp no">${T("Ні")}</span></div>
+      <div class="sw-info">
+        <div class="badges">${kindHTML(f)}${wantHTML(f)}</div>
+        <div class="sw-title">${esc(t)}</div>
+        ${second ? `<div class="sw-sub">${esc(second)}</div>` : ""}
+        ${metaHTML(f)}${provHTML(f, "icons", true)}
+        ${desc ? `<p class="sw-desc">${esc(desc)}</p>` : ""}
+        ${trailersHTML(f) ? `<div class="sw-trailers">${trailersHTML(f)}</div>` : ""}
+      </div>
+    </div>`;
+  }
+  function showSwipeCard() {
+    while (swPos < swQueue.length && !films.some((f) => f.id === swQueue[swPos] && needsMyVote(f))) swPos++;
+    const stage = $("#swStage"), left = swQueue.length - swPos;
+    $("#swSub").textContent = left > 0 ? T("Залишилось: {n}", { n: left }) : "";
+    $("#swActions").hidden = left <= 0;
+    if (left <= 0) {
+      stage.innerHTML = `<div class="sw-end"><b>${T("Готово!")}</b><span>${swDone ? T(said(me, "Ти проголосував за все, що чекало на тебе.", "Ти проголосувала за все, що чекало на тебе.")) : T("Зараз нічого не чекає на твій голос.")}</span>
+        <button type="button" class="btn primary" data-act="sw-close">${T("Закрити")}</button></div>`;
+      return;
+    }
+    const f = films.find((x) => x.id === swQueue[swPos]);
+    stage.innerHTML = swipeCardHTML(f);
+    const card = $("#swCard");
+    if (motionOK()) card.animate([{ opacity: 0, transform: "scale(.96)" }, { opacity: 1, transform: "none" }], { duration: 180, easing: EASE });
+    attachDrag(card);
+  }
+  function swipeVote(val) {
+    if (swBusy) return;
+    const card = $("#swCard"); if (!card) return;
+    const f = films.find((x) => x.id === card.dataset.id); if (!f) return;
+    swBusy = true;
+    const dir = val === "yes" ? 1 : val === "no" ? -1 : 0;
+    const match = val === "yes" && f[theirKey()] === "yes";
+    if (val) { buzz(15); patchFilm(f.id, { [myKey()]: val }); swDone++; }
+    const r = card.getBoundingClientRect();
+    const next = () => { swBusy = false; swPos++; showSwipeCard(); if (match) matchNow(f, r.left + r.width / 2, r.top + r.height / 3); };
+    if (!motionOK()) { next(); return; }
+    const cur = card.style.transform || "none";
+    card.animate([{ transform: cur, opacity: 1 }, { transform: dir ? `translateX(${dir * (window.innerWidth + 200)}px) rotate(${dir * 18}deg)` : "translateY(-30px) scale(.94)", opacity: dir ? 1 : 0 }],
+      { duration: dir ? 280 : 200, easing: "cubic-bezier(.4,.1,.6,1)", fill: "forwards" }).finished.then(next, next);
+  }
+  function attachDrag(card) {
+    let x0 = 0, y0 = 0, dx = 0, dragging = false, decided = false;
+    const yes = card.querySelector(".sw-stamp.yes"), no = card.querySelector(".sw-stamp.no");
+    card.addEventListener("pointerdown", (e) => {
+      if (e.target.closest("button, a") || swBusy) return;
+      x0 = e.clientX; y0 = e.clientY; dx = 0; dragging = true; decided = false;
+      card.setPointerCapture(e.pointerId); card.classList.add("dragging");
+    });
+    card.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      dx = e.clientX - x0;
+      if (!decided && Math.abs(e.clientY - y0) > 12 && Math.abs(dx) < 12) { dragging = false; card.classList.remove("dragging"); return; }
+      decided = decided || Math.abs(dx) > 8;
+      card.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`;
+      yes.style.opacity = Math.max(0, Math.min(1, dx / 110)); no.style.opacity = Math.max(0, Math.min(1, -dx / 110));
+    });
+    const end = () => {
+      if (!dragging) return;
+      dragging = false; card.classList.remove("dragging");
+      if (dx > 110) swipeVote("yes");
+      else if (dx < -110) swipeVote("no");
+      else {
+        if (motionOK() && dx) card.animate([{ transform: card.style.transform }, { transform: "none" }], { duration: 200, easing: EASE });
+        card.style.transform = ""; yes.style.opacity = 0; no.style.opacity = 0;
+      }
+    };
+    card.addEventListener("pointerup", end);
+    card.addEventListener("pointercancel", end);
+  }
+  $("#swYes").addEventListener("click", () => swipeVote("yes"));
+  $("#swNo").addEventListener("click", () => swipeVote("no"));
+  $("#swSkip").addEventListener("click", () => swipeVote(""));
+  $("#swClose").addEventListener("click", closeSwipe);
+  $("#swipe").addEventListener("click", (e) => { if (e.target.closest('[data-act="sw-close"]')) closeSwipe(); });
+  document.addEventListener("keydown", (e) => {
+    if ($("#swipe").hidden || !$("#player").hidden) return;
+    if (e.key === "ArrowRight") { e.preventDefault(); swipeVote("yes"); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); swipeVote("no"); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); swipeVote(""); }
+  });
+
   // ---------- recommendations ----------
   // Built from TMDB's "recommendations" for titles you rated 7+ (or both said «Так» to), weighted by how
   // much you liked the source. Cached for 12 hours; recomputed when the source titles change.
@@ -1058,15 +1274,20 @@
     if (!el || el.tagName === "INPUT") return;
     const act = el.dataset.act, id = el.dataset.id;
     if (act === "desc") { const k = el.dataset.key; expanded.has(k) ? expanded.delete(k) : expanded.add(k); render(); }
+    else if (act === "open") openDetails(id);
+    else if (act === "dt-close") closeDetails();
+    else if (act === "dt-lang") { dtLang = el.dataset.l; refreshDetails(); }
+    else if (act === "swipe") openSwipe();
+    else if (act === "mark-watched") { const f = films.find((x) => x.id === id); if (f) { buzz(15); patchFilm(id, watchedPatch(f, true)); } }
     else if (act === "vote") {
       const f = films.find((x) => x.id === id); if (!f) return;
       const who = el.dataset.who;
       if (who !== myKey()) return;
       const val = f[who] === el.dataset.val ? "" : el.dataset.val;
-      patchFilm(id, { [who]: val }).then((ok) => {
-        if (ok && val === "yes" && f[theirKey()] === "yes" && !f.watched)
-          toast(T("Збіг! {t} → «Погоджені»", { t: q2(titleOf(f)) }), { label: T("Відкрити"), run: () => selectTab("agreed") });
-      });
+      const r = el.getBoundingClientRect(), wasMatch = val === "yes" && f[theirKey()] === "yes" && !f.watched;
+      buzz(12);
+      if (wasMatch) closeDetails();
+      patchFilm(id, { [who]: val }).then((ok) => { if (ok && wasMatch) matchNow(f, r.left + r.width / 2, r.top + r.height / 2); });
       // small press feedback on the re-rendered switch (only if the film stays in this list)
       if (motionOK()) requestAnimationFrame(() => document.querySelectorAll(`[data-act="vote"][data-id="${id}"][data-who="${who}"].on`)
         .forEach((b) => b.animate([{ transform: "scale(.92)" }, { transform: "none" }], { duration: 180, easing: EASE })));
@@ -1074,6 +1295,7 @@
     else if (act === "rate") {
       const f = films.find((x) => x.id === id); if (!f) return;
       const col = el.dataset.who + "_rating", val = Number(el.dataset.val);
+      buzz(8);
       patchFilm(id, { [col]: f[col] === val ? null : val }); // tapping the current star again clears it
       if (motionOK()) requestAnimationFrame(() => document.querySelectorAll(`[data-act="rate"][data-id="${id}"][data-who="${el.dataset.who}"][data-val="${val}"]`)
         .forEach((b) => b.animate([{ transform: "scale(.8)" }, { transform: "scale(1.15)" }, { transform: "none" }], { duration: 220, easing: EASE })));
@@ -1085,6 +1307,7 @@
     }
     else if (act === "ep-done") {
       const f = films.find((x) => x.id === id); if (!f) return;
+      buzz(12);
       patchFilm(id, nextEp(f));
       if (motionOK()) requestAnimationFrame(() => document.querySelectorAll(`.card[data-key="${id}"] .prog-bar span`)
         .forEach((b) => b.animate([{ filter: "brightness(1.6)" }, { filter: "none" }], { duration: 400, easing: "ease-out" })));
@@ -1109,8 +1332,8 @@
         } });
       });
     }
-    else if (act === "edit") openEditor(id);
-    else if (act === "delete") deleteFilms([id]);
+    else if (act === "edit") { closeDetails(); openEditor(id); }
+    else if (act === "delete") { closeDetails(); deleteFilms([id]); }
     else if (act === "play") {
       const f = films.find((x) => x.id === id); if (!f) return;
       openPlayer(f, el.dataset.which);
@@ -1128,8 +1351,8 @@
     }
   });
   document.addEventListener("keydown", (e) => {
-    if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('[data-act="desc"]')) { e.preventDefault(); e.target.click(); }
-    if (e.key === "Escape") { if (!$("#listSheet").hidden) closeOverlay("#listSheet"); else if (!$("#player").hidden) closePlayer(); else if (!$("#picker").hidden) closeOverlay("#picker"); else if (!$("#statsView").hidden) closeOverlay("#statsView"); else if (!$("#editor").hidden) closeEditor(); }
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('[role="button"][data-act]')) { e.preventDefault(); e.target.click(); }
+    if (e.key === "Escape") { if (!$("#swipe").hidden) closeSwipe(); else if (!$("#editor").hidden) closeEditor(); else if (!$("#details").hidden) closeDetails(); else if (!$("#listSheet").hidden) closeOverlay("#listSheet"); else if (!$("#player").hidden) closePlayer(); else if (!$("#picker").hidden) closeOverlay("#picker"); else if (!$("#statsView").hidden) closeOverlay("#statsView"); else if (!$("#editor").hidden) closeEditor(); }
   });
 
   function openOverlay(sel) {
@@ -1289,6 +1512,7 @@
   }
   $("#statsBtn").addEventListener("click", () => { setMenu(false); $("#statsBody").innerHTML = statsHTML(); openOverlay("#statsView"); });
   $("#statsClose").addEventListener("click", () => closeOverlay("#statsView"));
+  $("#details").addEventListener("click", (e) => { if (e.target.id === "details") closeDetails(); });
   $("#statsView").addEventListener("click", (e) => { if (e.target.id === "statsView") closeOverlay("#statsView"); });
 
   // ---------- trailer player ----------
@@ -1703,6 +1927,11 @@
     } catch (e) {}
     render();
     await loadFilms();
+    if (!hashTab) { // start where there's something to do
+      const has = (k) => films.some((f) => tabOf(f) === k);
+      const start = films.some((f) => tabOf(f) === "proposed" && !f[myKey()]) ? "proposed" : has("watching") ? "watching" : has("agreed") ? "agreed" : null;
+      if (start && start !== tab) selectTab(start);
+    }
     subscribe();
     autoMatch();
     setTimeout(() => { refreshMeta().then(() => ensureRecs()); }, 1500);

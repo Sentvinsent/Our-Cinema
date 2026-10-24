@@ -27,6 +27,12 @@ A private, shared watchlist for Aleks and Alina.
 - **Notifications:** a short message on the site when the other person adds, votes, rates or deletes something, a
   «Нове» badge on titles they added since your last visit, and optional phone notifications (account menu).
 - **Installable:** add it to the home screen to open it like an app.
+- **Compact list + details:** phone cards show the essentials and one action for that list (vote, mark watched, start a
+  series, next episode, or ratings); tap a card for details (one description with a UA/EN switch, trailers, where to
+  watch, all actions, edit/delete). On desktop the table's poster and title open the same panel.
+- **Swipe voting:** «Голосувати» on the Proposed summary opens titles waiting for your vote one at a time — swipe or
+  tap right for Yes, left for No (arrow keys on desktop). Matches get a small burst and a vibration on Android.
+- The site opens on the list that needs you (Proposed if something waits for your vote, then Watching, then Agreed).
 - **Languages:** Ukrainian or English (switch in the account menu or on the sign-in screen). The choice is saved on the
   device and in your account, and also sets which title/description/trailer comes first, the language of
   recommendations and of phone notifications. English text lives in `i18n.js`, keyed by the Ukrainian original.
