@@ -89,7 +89,10 @@
   let toastTimer;
   function toast(msg, action) {
     const t = $("#toast");
-    t.textContent = msg;
+    t.textContent = "";
+    const text = document.createElement("span");
+    text.className = "toast-text"; text.textContent = msg;
+    t.append(text);
     if (action) {
       const b = document.createElement("button");
       b.type = "button"; b.className = "toast-btn"; b.textContent = action.label;
@@ -97,11 +100,11 @@
       t.append(b);
     }
     t.hidden = false;
-    if (motionOK()) t.animate([{ opacity: 0, transform: "translate(-50%, 10px)" }, { opacity: 1, transform: "translate(-50%, 0)" }], { duration: 180, easing: EASE });
+    if (motionOK()) t.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 180, easing: EASE });
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
       if (!motionOK()) { t.hidden = true; return; }
-      t.animate([{ opacity: 1 }, { opacity: 0, transform: "translate(-50%, 6px)" }], { duration: 160, easing: "ease-in" }).finished.then(() => (t.hidden = true), () => (t.hidden = true));
+      t.animate([{ opacity: 1 }, { opacity: 0, transform: "translateY(6px)" }], { duration: 160, easing: "ease-in" }).finished.then(() => (t.hidden = true), () => (t.hidden = true));
     }, action ? 8000 : 4500);
   }
   function setStatus(msg, err) {
