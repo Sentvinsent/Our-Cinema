@@ -1,0 +1,36 @@
+# Free Supabase projects pause after a week without traffic. This pings the database once a day
+# so the site keeps working even if nobody opens it for a while.
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: "17 6 * * *" # every day, 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write # lets the job re-enable itself (see last step)
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: config.js
+          sparse-checkout-cone-mode: false
+      - name: Ping Supabase
+        run: |
+          URL=$(grep -o 'https://[a-z0-9]*\.supabase\.co' config.js | head -1)
+          KEY=$(grep -o 'supabaseAnonKey: *"[^"]*"' config.js | sed 's/.*"\(.*\)"/\1/')
+          # The public anon key sees no rows (access rules), but the request still counts as activity.
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/rest/v1/films?select=id&limit=1" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY")
+          echo "Supabase answered $code"
+          test "$code" = "200"
+      - name: Stay enabled
+        # GitHub turns off scheduled jobs in public repos after 60 days without commits.
+        # Re-enabling through the API resets that clock.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/keepalive.yml/enable"
