@@ -135,7 +135,16 @@
   }
   const declOf = (f) => (f.aleks === "no" && f.alina === "no" ? "both" : f.aleks === "no" ? "aleks" : "alina");
 
-  let toastTimer;
+  let toastTimer, toastSeq = 0, toastAction = false;
+  const toastBusy = () => toastAction && !$("#toast").hidden; // an Undo / Open toast is still on screen
+  function hideToast() {
+    const t = $("#toast");
+    clearTimeout(toastTimer); toastAction = false;
+    if (t.hidden) return;
+    if (!motionOK()) { t.hidden = true; return; }
+    const up = document.body.classList.contains("ov-open");
+    t.animate([{ opacity: 1 }, { opacity: 0, transform: `translateY(${up ? -6 : 6}px)` }], { duration: 160, easing: "ease-in" }).finished.then(() => (t.hidden = true), () => (t.hidden = true));
+  }
   function toast(msg, action) {
     const t = $("#toast");
     t.textContent = "";
@@ -145,17 +154,19 @@
     if (action) {
       const b = document.createElement("button");
       b.type = "button"; b.className = "toast-btn"; b.textContent = action.label;
-      b.addEventListener("click", () => { t.hidden = true; action.run(); }, { once: true });
+      b.addEventListener("click", () => { t.hidden = true; toastAction = false; action.run(); }, { once: true });
       t.append(b);
     }
     t.hidden = false;
-    if (motionOK()) t.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 180, easing: EASE });
+    // while a panel is open the message shows at the top, so it never covers the panel's buttons
+    const up = document.body.classList.contains("ov-open");
+    if (motionOK()) t.animate([{ opacity: 0, transform: `translateY(${up ? -10 : 10}px)` }, { opacity: 1, transform: "none" }], { duration: 180, easing: EASE });
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      if (!motionOK()) { t.hidden = true; return; }
-      t.animate([{ opacity: 1 }, { opacity: 0, transform: "translateY(6px)" }], { duration: 160, easing: "ease-in" }).finished.then(() => (t.hidden = true), () => (t.hidden = true));
-    }, action ? 8000 : 4500);
+    toastAction = !!action;
+    toastTimer = setTimeout(hideToast, action ? 8000 : 4500);
+    return ++toastSeq;
   }
+  $("#toast").addEventListener("click", (e) => { if (!e.target.closest(".toast-btn")) hideToast(); }); // tap a message to dismiss it
   function setStatus(msg, err) {
     const s = $("#status"); s.textContent = msg || ""; s.hidden = !msg; s.classList.toggle("err", !!err);
   }
@@ -379,9 +390,9 @@
     if (!subs.length) return `<div class="prov prov-${mode}">${label}<span class="ptag none">${T(p.paid ? "Лише оренда або купівля" : "Немає на стрімінгах у Польщі")}</span></div>`;
     if (mode === "mini") {
       const top = subs.slice(0, 4), more = subs.length - top.length;
-      return `<span class="pmini" role="list" aria-label="${T("Де дивитись у Польщі")}">${top.map((x) => x.l
-        ? `<img role="listitem" src="${esc(IMG + "w45" + x.l)}" alt="${esc(x.n)}" title="${esc(x.n)}" loading="lazy">`
-        : `<span role="listitem" class="pm-l" title="${esc(x.n)}">${esc(x.n.charAt(0))}</span>`).join("")}`
+      return `<span class="pmini" role="group" aria-label="${T("Де дивитись у Польщі")}">${top.map((x) => x.l
+        ? `<img src="${esc(IMG + "w45" + x.l)}" alt="${esc(x.n)}" title="${esc(x.n)}" loading="lazy">`
+        : `<span class="pm-l" role="img" aria-label="${esc(x.n)}" title="${esc(x.n)}">${esc(x.n.charAt(0))}</span>`).join("")}`
         + (more > 0 ? `<span class="pm-more" title="${esc(subs.slice(4).map((x) => x.n).join(", "))}">+${more}</span>` : "") + `</span>`;
     }
     const top = mode === "icons" ? subs.slice(0, 5) : subs, more = subs.length - top.length; // the full row lists every service
@@ -463,7 +474,7 @@
     const cu = caughtUp(f), ended = /ended|canceled/i.test(ti.status || "");
     let action;
     if (cu && ended) action = `<button type="button" class="btn primary epbtn" data-act="finish" data-id="${f.id}">${CHECK}${T("Усе переглянули — позначити серіал")}</button>`;
-    else if (cu) action = `<div class="prog-note">${T("Ви наздогнали серіал.")} ${ti.next ? T("Наступна серія вийде {d}.", { d: fmtDate(ti.next.d) }) : T("Нових серій поки не оголошено.")}</div>`;
+    else if (cu) action = `<div class="prog-note">${T("Ви наздогнали серіал.")} ${ti.next ? T("Наступна серія вийде {d}.", { d: fmtDate(ti.next.d) }).replace(/\.\.$/, ".") : T("Нових серій поки не оголошено.")}</div>`;
     else action = `<button type="button" class="btn primary epbtn" data-act="ep-done" data-id="${f.id}">${CHECK}${T("Переглянули серію {e}", { e: ce })}${seasons && seasons.length > 1 ? " " + T("(сезон {s})", { s: cs }) : ""}</button>`;
     const pct = total ? Math.min(100, Math.round(((Math.min(ce, total + 1) - 1) / total) * 100)) : 0;
     return `<div class="prog">
@@ -518,10 +529,11 @@
           <div class="badges">${kindHTML(f)}${provHTML(f, "mini", true)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}${wantHTML(f)}</div>
           <div class="cc-title">${esc(t)}</div>
           ${second ? `<div class="cc-sub">${esc(second)}</div>` : ""}
-          ${metaHTML(f)}${fillHTML(f)}
+          ${metaHTML(f)}${busy.has(f.id) ? fillHTML(f) : ""}
         </div>
         <span class="cc-more">${DOTS}</span>
       </div>
+      ${!busy.has(f.id) && fillHTML(f) ? `<div class="cc-fill">${fillHTML(f)}</div>` : ""}
       <div class="cc-act">${actionHTML(f)}</div>
     </article>`;
   }
@@ -541,7 +553,8 @@
     const cu = caughtUp(f), ended = /ended|canceled/i.test(ti.status || "");
     const btn = cu && ended ? `<button type="button" class="btn primary cc-mini" data-act="finish" data-id="${f.id}">${CHECK}${T("Усе")}</button>`
       : cu ? "" : `<button type="button" class="btn primary cc-mini" data-act="ep-done" data-id="${f.id}">${CHECK}${T("Переглянули")}</button>`;
-    const note = cu ? (ti.next ? T("Наступна серія вийде {d}.", { d: fmtDate(ti.next.d) }) : T("Нових серій поки не оголошено.")) : "";
+    const note = cu ? (ti.next ? T("Наступна серія вийде {d}.", { d: fmtDate(ti.next.d) }).replace(/\.\.$/, ".") : T("Нових серій поки не оголошено."))
+      : !ti.last ? `${T("TMDB не знає, скільки тут серій.")} <button type="button" class="linkbtn" data-act="finish" data-id="${f.id}">${T("Позначити серіал переглянутим")}</button>` : "";
     return `<div class="cc-prog">
       <div class="cc-prog-top"><span class="cc-prog-l">${cu ? T("Ви наздогнали серіал.") : T("Далі: сезон {s}, серія {e}", { s: cs, e: ce })}${total && !cu ? ` <small>${T("з {n}", { n: total })}</small>` : ""}</span>${btn}</div>
       ${total ? `<div class="prog-bar" aria-hidden="true"><span style="width:${cu ? 100 : pct}%"></span></div>` : ""}
@@ -601,10 +614,12 @@
     const f = films.find((x) => x.id === dtId);
     if (!f) { closeDetails(); return; }
     const box = $("#details .dt-box"), top = box.scrollTop;
+    const fk = box.contains(document.activeElement) ? focusSel(document.activeElement) : "";
     $("#dtBody").innerHTML = detailsHTML(f);
     box.scrollTop = top;
+    refocus(box, fk);
   }
-  function closeDetails() { if (!$("#details").hidden) closeOverlay("#details"); dtId = null; }
+  function closeDetails(viaHistory) { if (!$("#details").hidden) closeOverlay("#details", viaHistory); dtId = null; }
 
   // ---------- small feedback: vibration on Android, a burst when you both say Так ----------
   const buzz = (pattern) => { try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {} };
@@ -665,12 +680,20 @@
       { duration: 160, easing: "ease-in", fill: "forwards" }).finished.catch(() => {}))).then(() => {});
   }
 
+  // redraw, keeping keyboard focus on the same control when it survives the redraw
   function render(animate = true) {
+    const a = document.activeElement;
+    const fk = a && a !== document.body && a.closest && a.closest("#rows, #cards, #tabs, #declFilter, #listGrid, #empty, #voteBanner") ? focusSel(a) : "";
+    draw(animate);
+    if (fk) refocus(document, fk);
+  }
+  function draw(animate) {
     const before = animate && loaded ? snapshot() : null;
     const counts = Object.fromEntries(TABS.map(([k]) => [k, 0])), fresh = {};
     for (const f of films) if (kindOK(f)) { const k = tabOf(f); counts[k]++; if (isNew(f)) fresh[k] = true; }
-    if (recs.status === "ready") counts.recs = recItems().length;
-    const showN = (k) => !(k === "recs" && recs.status !== "ready");
+    const recsKnown = recs.status === "ready" || recs.items.length > 0;
+    if (recsKnown) counts.recs = recItems().length;
+    const showN = (k) => !(k === "recs" && !recsKnown);
     $("#tabs").innerHTML = TABS.map(([k, label]) =>
       `<button class="tab" role="tab" data-tab="${k}" aria-selected="${k === tab}"><span>${T(label)}</span>`
       + (showN(k) ? `<span class="n">${counts[k]}</span>` : "")
@@ -778,7 +801,7 @@
     openOverlay("#swipe");
     showSwipeCard();
   }
-  function closeSwipe() { if (!$("#swipe").hidden) closeOverlay("#swipe"); }
+  function closeSwipe(viaHistory) { if (!$("#swipe").hidden) closeOverlay("#swipe", viaHistory); }
   function swipeCardHTML(f) {
     const t = titleOf(f), second = otherTitle(f), desc = isEn() ? f.desc_en || f.desc_ua : f.desc_ua || f.desc_en;
     return `<div class="sw-card" id="swCard" data-id="${f.id}">
@@ -799,8 +822,13 @@
     $("#swSub").textContent = left > 0 ? T("Залишилось: {n}", { n: left }) : "";
     $("#swActions").hidden = left <= 0;
     if (left <= 0) {
-      stage.innerHTML = `<div class="sw-end"><b>${T("Готово!")}</b><span>${swDone ? T(said(me, "Ти проголосував за все, що чекало на тебе.", "Ти проголосувала за все, що чекало на тебе.")) : T("Зараз нічого не чекає на твій голос.")}</span>
+      const skipped = films.filter(needsMyVote).length; // skipped now, or added meanwhile
+      const msg = skipped ? T("Пропущено {n} {w}. Вони чекають у «Запропонованих».", { n: skipped, w: plural(skipped, ["назву", "назви", "назв"]) })
+        : swDone ? T(said(me, "Ти проголосував за все, що чекало на тебе.", "Ти проголосувала за все, що чекало на тебе.")) : T("Зараз нічого не чекає на твій голос.");
+      stage.innerHTML = `<div class="sw-end"><b>${T("Готово!")}</b><span>${msg}</span>
+        ${skipped ? `<button type="button" class="btn" data-act="sw-again">${T("Повернутися до пропущених")}</button>` : ""}
         <button type="button" class="btn primary" data-act="sw-close">${T("Закрити")}</button></div>`;
+      const b = stage.querySelector("button"); if (b && !$("#swipe").hidden) b.focus({ preventScroll: true });
       return;
     }
     const f = films.find((x) => x.id === swQueue[swPos]);
@@ -856,8 +884,8 @@
   $("#swYes").addEventListener("click", () => swipeVote("yes"));
   $("#swNo").addEventListener("click", () => swipeVote("no"));
   $("#swSkip").addEventListener("click", () => swipeVote(""));
-  $("#swClose").addEventListener("click", closeSwipe);
-  $("#swipe").addEventListener("click", (e) => { if (e.target.closest('[data-act="sw-close"]')) closeSwipe(); });
+  $("#swClose").addEventListener("click", () => closeSwipe());
+  $("#swipe").addEventListener("click", (e) => { if (e.target.closest('[data-act="sw-close"]')) closeSwipe(); else if (e.target.closest('[data-act="sw-again"]')) openSwipe(); });
   document.addEventListener("keydown", (e) => {
     if ($("#swipe").hidden || !$("#player").hidden) return;
     if (e.key === "ArrowRight") { e.preventDefault(); swipeVote("yes"); }
@@ -895,23 +923,25 @@
     const { data, error } = await sb.from("rec_hidden").select("media_type,tmdb_id");
     if (!error) { recHidden = new Set((data || []).map((r) => recKey(r.media_type, r.tmdb_id))); hiddenLoaded = true; }
   }
+  const recSig = (src) => LANG + "|" + src.map((x) => recKey(x.f.media_type, x.f.tmdb_id) + "*" + x.w).sort().join(",");
   async function ensureRecs(force) {
     if (recs.status === "loading" || !loaded) return;
-    const src = recSources();
-    const sig = LANG + "|" + src.map((x) => recKey(x.f.media_type, x.f.tmdb_id) + "*" + x.w).sort().join(",");
+    const src = recSources(), sig = recSig(src);
     if (!force && recs.status === "ready" && recs.sig === sig && Date.now() - recs.at < 12 * 3600e3) return;
+    if (!force && recs.status === "error" && recs.sig === sig && Date.now() - recs.at < 60e3) return; // just failed: wait a minute or for «Спробувати ще раз»
     if (!force) {
       try {
         const c = JSON.parse(localStorage.getItem("oc-recs") || "null");
-        if (c && c.sig === sig && Date.now() - c.at < 12 * 3600e3) { await loadHidden(); recs = { status: "ready", items: c.items, sig, at: c.at }; render(false); return; }
+        if (c && c.sig === sig && Date.now() - c.at < 12 * 3600e3 && c.items && c.items.length) { await loadHidden(); recs = { status: "ready", items: c.items, sig, at: c.at }; render(false); return; }
       } catch (e) {}
     }
-    recs = { status: "loading", items: recs.items, sig, at: 0 };
+    const prev = recs.status === "ready" || recs.status === "error" ? recs.items : [];
+    recs = { status: "loading", items: prev, sig, at: 0 };
     if (tab === "recs") render(false);
     try {
       await loadHidden();
       const agg = new Map();
-      let i = 0;
+      let i = 0, failed = 0;
       const worker = async () => {
         while (i < src.length) {
           const { f, w } = src[i++];
@@ -931,14 +961,16 @@
               a.score += w * (1 + (r.vote_average || 0) / 10);
               if (a.because.length < 3 && !a.because.includes(titleOf(f))) a.because.push(titleOf(f));
             }
-          } catch (e) { /* one failed source shouldn't stop the rest */ }
+          } catch (e) { failed++; /* one failed source shouldn't stop the rest */ }
         }
       };
       await Promise.all([worker(), worker(), worker()]);
+      if (src.length && failed === src.length) throw new Error("all sources failed");
       const items = [...agg.values()].sort((a, b) => b.score - a.score || b.pop - a.pop).slice(0, 80);
       recs = { status: "ready", items, sig, at: Date.now() };
-      try { localStorage.setItem("oc-recs", JSON.stringify({ sig, at: recs.at, items })); } catch (e) {}
-    } catch (e) { recs = { status: "error", items: [], sig: "", at: 0 }; }
+      // only a complete answer is kept for 12 hours; a partial one is tried again next time
+      if (!failed) try { localStorage.setItem("oc-recs", JSON.stringify({ sig, at: recs.at, items })); } catch (e) {}
+    } catch (e) { recs = { status: "error", items: prev, sig, at: Date.now() }; }
     render(false);
   }
   function recCardHTML(r) {
@@ -969,16 +1001,17 @@
     const empty = $("#empty"), more = $("#more");
     visibleIds = [];
     $("#tableWrap").hidden = true;
-    const show = (h, t, spin) => {
-      empty.innerHTML = `<b>${spin ? '<span class="spin"></span>' : ""}${esc(T(h))}</b>${esc(T(t))}`;
+    const show = (h, t, spin, retry) => {
+      empty.innerHTML = `<b>${spin ? '<span class="spin"></span>' : ""}${esc(T(h))}</b>${esc(T(t))}`
+        + (retry ? `<button type="button" class="btn empty-btn" data-act="rec-retry">${T("Спробувати ще раз")}</button>` : "");
       empty.hidden = false; $("#cards").hidden = true; more.hidden = true;
     };
-    if (recs.status !== "ready") {
-      if (recs.status === "error") { show("Не вдалося отримати рекомендації", "Перевірте з’єднання і відкрийте вкладку ще раз."); recs.status = "idle"; return; }
-      show("Шукаємо рекомендації…", "Дивимось, що схоже на фільми й серіали, які вам сподобались.", true);
-      ensureRecs();
-      return;
+    if (!recs.items.length) {
+      if (recs.status === "error") { show("Не вдалося отримати рекомендації", "TMDB зараз не відповідає або немає з’єднання.", false, true); setTimeout(() => ensureRecs(), 0); return; }
+      if (recs.status !== "ready") { show("Шукаємо рекомендації…", "Дивимось, що схоже на фільми й серіали, які вам сподобались.", true); setTimeout(() => ensureRecs(), 0); return; }
     }
+    // you rated or agreed on something since: refresh quietly, keep showing the current list meanwhile
+    if (recs.status === "ready" && recs.sig !== recSig(recSources())) setTimeout(() => ensureRecs(), 0);
     const q = norm(query);
     let list = recItems();
     if (q) list = list.filter((r) => norm(r.title).includes(q) || norm(r.original).includes(q));
@@ -1009,9 +1042,13 @@
     render();
     const { error } = await sb.from("films").delete().in("id", ids);
     if (error) { films = films.concat(removed); render(); toast(dbErr(error)); return; }
-    const label = removed.length === 1 ? T("Видалено «{t}»", { t: titleOf(removed[0]) }) : T("Видалено {n} {w}", { n: removed.length, w: plural(removed.length, FILMS) });
-    toast(label, { label: T("Скасувати"), run: () => restoreFilms(removed) });
+    // deleting again while the last Undo is still on screen adds to it, so one Undo brings both back
+    const rows = (toastBusy() && undoToast === toastSeq ? undoRows : []).concat(removed);
+    undoRows = rows;
+    const label = rows.length === 1 ? T("Видалено «{t}»", { t: titleOf(rows[0]) }) : T("Видалено {n} {w}", { n: rows.length, w: plural(rows.length, FILMS) });
+    undoToast = toast(label, { label: T("Скасувати"), run: () => { undoRows = []; restoreFilms(rows); } });
   }
+  let undoRows = [], undoToast = 0;
   async function restoreFilms(rows) {
     const { data, error } = await sb.from("films").insert(rows.map((r) => ({ ...r }))).select();
     if (error) { toast(dbErr(error)); return; }
@@ -1053,10 +1090,12 @@
   function notifyAct(msg) {
     actQueue.push(msg);
     clearTimeout(actTimer);
-    actTimer = setTimeout(() => {
+    const flush = () => {
+      if (toastBusy()) { actTimer = setTimeout(flush, 1500); return; } // don't push an Undo / Open message off the screen
       const q = actQueue; actQueue = [];
-      toast(q.length === 1 ? q[0] : T("{last} (і ще {n} {w})", { last: q[q.length - 1], n: q.length - 1, w: plural(q.length - 1, ["зміна", "зміни", "змін"]) }));
-    }, 700);
+      if (q.length) toast(q.length === 1 ? q[0] : T("{last} (і ще {n} {w})", { last: q[q.length - 1], n: q.length - 1, w: plural(q.length - 1, ["зміна", "зміни", "змін"]) }));
+    };
+    actTimer = setTimeout(flush, 700);
   }
 
   function subscribe() {
@@ -1071,7 +1110,8 @@
           if (i >= 0) films[i] = p.new; else films.unshift(p.new);
           if (p.new.updated_by && p.new.updated_by !== me) {
             const msg = prev ? describe(prev, p.new)
-              : p.eventType === "INSERT" ? T(said(p.new.updated_by, "{w} додав {t}", "{w} додала {t}"), { w: NAME[p.new.updated_by] || T("Хтось"), t: q2(titleOf(p.new)) }) : "";
+              : p.eventType === "INSERT" ? T(Date.now() - Date.parse(p.new.created_at) > 60e3 // an old title coming back = «Скасувати» after a delete
+                ? said(p.new.updated_by, "{w} відновив {t}", "{w} відновила {t}") : said(p.new.updated_by, "{w} додав {t}", "{w} додала {t}"), { w: NAME[p.new.updated_by] || T("Хтось"), t: q2(titleOf(p.new)) }) : "";
             if (msg) notifyAct(msg);
           }
         }
@@ -1199,7 +1239,7 @@
       if (list.hidden || !items.length) return;
       if (e.key === "ArrowDown") { e.preventDefault(); active = (active + 1) % items.length; paint(); }
       else if (e.key === "ArrowUp") { e.preventDefault(); active = (active - 1 + items.length) % items.length; paint(); }
-      else if (e.key === "Escape") { close(); }
+      else if (e.key === "Escape") { e.stopPropagation(); close(); }
       else if (e.key === "Enter" && active >= 0) { e.preventDefault(); const r = items[active]; close(); onPick(r); }
     });
     list.addEventListener("mousedown", (e) => e.preventDefault());
@@ -1333,6 +1373,7 @@
       addFromResult({ id: Number(el.dataset.tid), type: el.dataset.type }, { stay: true })
         .then(async (ok) => { if (ok) { await animateOut([key]); render(); } else { el.disabled = false; el.classList.remove("busy"); } });
     }
+    else if (act === "rec-retry") ensureRecs(true);
     else if (act === "rec-hide") {
       const type = el.dataset.type, tid = Number(el.dataset.tid), k = recKey(type, tid);
       animateOut([el.dataset.key2]).then(() => { recHidden.add(k); render(); });
@@ -1364,22 +1405,88 @@
   });
   document.addEventListener("keydown", (e) => {
     if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('[role="button"][data-act]')) { e.preventDefault(); e.target.click(); }
-    if (e.key === "Escape") { if (!$("#swipe").hidden) closeSwipe(); else if (!$("#editor").hidden) closeEditor(); else if (!$("#details").hidden) closeDetails(); else if (!$("#listSheet").hidden) closeOverlay("#listSheet"); else if (!$("#player").hidden) closePlayer(); else if (!$("#picker").hidden) closeOverlay("#picker"); else if (!$("#statsView").hidden) closeOverlay("#statsView"); else if (!$("#editor").hidden) closeEditor(); }
+    if (e.key === "Escape") { const top = topOverlay(); if (top) closeTop(top); }
+    if (e.key === "Tab") trapTab(e);
   });
 
+  // ---------- panels (details, voting, editor, trailer…) ----------
+  // Open panels form a stack. Each one adds a browser history entry, so the phone's Back button
+  // (and Escape) closes the panel on top instead of leaving the site. Keyboard focus moves into
+  // the panel, stays inside it, and goes back to where it was when the panel closes.
+  const ovStack = []; // [{ sel, ret, key, alt }], last = on top
+  let popSkip = 0;    // history steps the page takes itself when a panel is closed with ✕ / Escape
+  const topOverlay = () => { for (let i = ovStack.length - 1; i >= 0; i--) if (!$(ovStack[i].sel).hidden) return ovStack[i].sel; return null; };
+  function closeTop(sel, viaHistory) {
+    if (sel === "#swipe") closeSwipe(viaHistory);
+    else if (sel === "#editor") closeEditor(viaHistory);
+    else if (sel === "#details") closeDetails(viaHistory);
+    else if (sel === "#player") closePlayer(viaHistory);
+    else closeOverlay(sel, viaHistory);
+  }
+  window.addEventListener("popstate", () => {
+    if (popSkip > 0) popSkip--;
+    else { const top = topOverlay(); if (top) closeTop(top, true); }
+    try { history.replaceState(history.state, "", "#" + tab); } catch (e) {} // keep the address showing the current list
+  });
+  // a selector that finds "the same" control again after the list or panel is redrawn
+  function focusSel(el) {
+    if (!el || el === document.body || !el.dataset) return "";
+    if (el.id) return "#" + CSS.escape(el.id);
+    const parts = ["act", "id", "who", "val", "l", "which", "tab", "kind", "decl"].filter((k) => el.dataset[k] != null).map((k) => `[data-${k}="${CSS.escape(el.dataset[k])}"]`);
+    return parts.join("");
+  }
+  const visible = (el) => !!(el && el.isConnected && el.getClientRects().length && !el.closest("[hidden]"));
+  function refocus(scope, key) { // after a redraw replaced the focused control
+    const a = document.activeElement;
+    if (!key || (a && a !== document.body && visible(a))) return;
+    const el = [...scope.querySelectorAll(key)].find(visible);
+    if (el) el.focus({ preventScroll: true });
+  }
   function openOverlay(sel) {
-    const o = $(sel); o.hidden = false; document.body.style.overflow = "hidden";
+    const o = $(sel);
+    if (!o.hidden) return;
+    let ret = document.activeElement;
+    if (ret && ret.closest && ret.closest("#acctMenu")) ret = $("#acctBtn");
+    const key = focusSel(ret), alt = ret && ret.dataset && ret.dataset.id ? `[data-act="open"][data-id="${CSS.escape(ret.dataset.id)}"]` : "";
+    o.hidden = false; document.body.style.overflow = "hidden"; document.body.classList.add("ov-open");
+    ovStack.push({ sel, ret, key, alt });
+    try { history.pushState({ oc: "panel" }, "", location.href); } catch (e) {}
+    const box = o.firstElementChild;
     if (motionOK()) {
       o.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" });
-      const box = o.firstElementChild;
       if (box) box.animate([{ opacity: 0, transform: "translateY(12px) scale(.985)" }, { opacity: 1, transform: "none" }], { duration: 200, easing: EASE });
     }
+    if (box) { if (!box.hasAttribute("tabindex")) box.tabIndex = -1; box.focus({ preventScroll: true }); }
   }
-  function closeOverlay(sel) {
+  function closeOverlay(sel, viaHistory) {
     const o = $(sel);
-    const done = () => { o.hidden = true; if ([...document.querySelectorAll(".overlay")].every((x) => x.hidden)) document.body.style.overflow = ""; };
+    let i = ovStack.length - 1; while (i >= 0 && ovStack[i].sel !== sel) i--;
+    if (o.hidden && i < 0) return;
+    const entry = i >= 0 ? ovStack.splice(i, 1)[0] : null;
+    if (entry && viaHistory !== true) { popSkip++; try { history.back(); } catch (e) { popSkip--; } }
+    if (!ovStack.length) document.body.classList.remove("ov-open");
+    const done = () => {
+      o.hidden = true;
+      if ([...document.querySelectorAll(".overlay")].every((x) => x.hidden)) document.body.style.overflow = "";
+      if (!entry) return;
+      const top = topOverlay();
+      if (top) { if (!$(top).contains(document.activeElement)) { const b = $(top).firstElementChild; if (b) b.focus({ preventScroll: true }); } return; }
+      if (visible(document.activeElement) && document.activeElement !== document.body) return;
+      const el = visible(entry.ret) ? entry.ret : [entry.key, entry.alt].filter(Boolean).map((k) => [...document.querySelectorAll(k)].find(visible)).find(Boolean);
+      if (el) el.focus({ preventScroll: true });
+    };
     if (!motionOK() || o.hidden) { done(); return; }
     o.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, easing: "ease-in" }).finished.then(done, done);
+  }
+  function trapTab(e) {
+    const top = topOverlay(); if (!top) return;
+    const box = $(top).firstElementChild;
+    const items = [...box.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter((x) => !x.disabled && visible(x));
+    if (!items.length) { e.preventDefault(); box.focus(); return; }
+    const first = items[0], last = items[items.length - 1], a = document.activeElement;
+    if (!box.contains(a) || a === box) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+    else if (e.shiftKey && a === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && a === last) { e.preventDefault(); first.focus(); }
   }
 
   // ---------- random pick from Погоджені (follows the Усі / Фільми / Серіали filter) ----------
@@ -1546,9 +1653,9 @@
     $("#playerFrame").innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0" title="${T("Трейлер")}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
     openOverlay("#player");
   }
-  function closePlayer() { $("#playerFrame").innerHTML = ""; $("#playerFrame").style.backgroundImage = ""; closeOverlay("#player"); }
-  $("#playerClose").addEventListener("click", closePlayer);
-  $("#playerYt").addEventListener("click", () => setTimeout(closePlayer, 300)); // stop the embedded copy once YouTube opens
+  function closePlayer(viaHistory) { $("#playerFrame").innerHTML = ""; $("#playerFrame").style.backgroundImage = ""; closeOverlay("#player", viaHistory); }
+  $("#playerClose").addEventListener("click", () => closePlayer());
+  $("#playerYt").addEventListener("click", () => setTimeout(() => closePlayer(), 300)); // stop the embedded copy once YouTube opens
   $("#player").addEventListener("click", (e) => { if (e.target.id === "player") closePlayer(); });
 
   // ---------- editor ----------
@@ -1590,8 +1697,8 @@
     fillForm(f);
     openOverlay("#editor");
   }
-  function closeEditor() { closeOverlay("#editor"); edId = null; edMatch = null; }
-  $("#edCancel").addEventListener("click", closeEditor);
+  function closeEditor(viaHistory) { closeOverlay("#editor", viaHistory); edId = null; edMatch = null; }
+  $("#edCancel").addEventListener("click", () => closeEditor());
   $("#editor").addEventListener("click", (e) => { if (e.target.id === "editor") closeEditor(); });
   $("#edPoster").addEventListener("input", edPreview);
   $("#edForm").addEventListener("submit", async (e) => {

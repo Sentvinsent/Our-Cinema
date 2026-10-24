@@ -257,12 +257,21 @@ window.OC_EN = {
   "Сайт ще не під’єднаний до бази даних.": "The site isn’t connected to the database yet.",
   "Посилання застаріло. Надішліть нове.": "The link has expired. Send a new one.",
   "Помилка входу: {m}": "Sign-in error: {m}",
+
+  // after end-to-end testing
+  "Спробувати ще раз": "Try again",
+  "TMDB зараз не відповідає або немає з’єднання.": "TMDB isn’t responding right now, or you’re offline.",
+  "Пропущено {n} {w}. Вони чекають у «Запропонованих».": "Skipped {n} {w}. They’re waiting in Proposed.",
+  "Повернутися до пропущених": "Back to the skipped ones",
+  "TMDB не знає, скільки тут серій.": "TMDB doesn’t know how many episodes this has.",
+  "Позначити серіал переглянутим": "Mark the series as watched",
+  "{w} відновив {t}": "{w} restored {t}", "{w} відновила {t}": "{w} restored {t}",
 };
 
 // English singular/plural for the Ukrainian word forms the app uses (keyed by the first Ukrainian form).
 window.OC_EN_PL = {
   "фільм": ["film", "films"], "назва": ["title", "titles"], "серіал": ["series", "series"], "зірка": ["star", "stars"],
-  "зміна": ["change", "changes"], "оцінка": ["rating", "ratings"], "голосу": ["vote", "votes"],
+  "зміна": ["change", "changes"], "назву": ["title", "titles"], "оцінка": ["rating", "ratings"], "голосу": ["vote", "votes"],
   "погодженого серіалу": ["agreed series", "agreed series"], "погодженого фільму": ["agreed film", "agreed films"],
   "погодженої назви": ["agreed title", "agreed titles"],
 };

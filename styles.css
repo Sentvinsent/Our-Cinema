@@ -955,3 +955,28 @@ body.has-bulk .totop { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .rate-ro em { font-style: normal; font-size: 13px; color: var(--muted); }
 .c-vote .rate-ro { padding: 4px 8px; border: 0; flex-direction: column; align-items: flex-start; gap: 2px; font-size: 13px; }
 .c-vote .rate-ro em { font-size: 12px; line-height: 1.2; }
+
+/* ===================== Fixes after end-to-end testing ===================== */
+/* very long words (titles, genres, descriptions) wrap instead of widening the page or the table */
+.cc-info { grid-template-columns: minmax(0, 1fr); }
+.cc-sub, .cc-info .meta, .dt-info .meta, .sw-info .meta, .pick-info .meta, .card-head .title-ua, .card-head .title-en, .card-head .meta,
+.card-desc .desc, .dt-title, .dt-sub, .dt-desc p, .sw-title, .sw-sub, .sw-desc, .pick-title, .pick-en, .pick-desc, .st-t, .because, .s-t,
+.player-title, .fillstate, #rows .desc { overflow-wrap: anywhere; }
+/* hidden labels inside the table stay inside it (they used to stretch the page sideways) */
+.tablewrap { position: relative; }
+/* table titles keep whole words (columns are narrow on small laptops); only a freak word may widen them */
+#rows .title-en, #rows .title-ua, #rows .meta { overflow-wrap: break-word; }
+/* while a panel is open, messages appear at the top so they never cover its buttons; tap one to dismiss it */
+body.ov-open .toast { top: calc(12px + env(safe-area-inset-top, 0px)); bottom: auto; }
+.toast { cursor: default; }
+/* panels take keyboard focus when they open; no ring around the whole panel */
+.overlay > :focus { outline: none; }
+/* «Не знайдено на TMDB · Знайти» under the card's tappable area, lined up with the title */
+.cc-fill { padding-left: 88px; margin-top: -4px; }
+.cc-fill .fillstate { margin-top: 0; }
+.cc-note .linkbtn { font-size: inherit; }
+.empty-btn { display: flex; margin: 14px auto 0; }
+/* the list area is the page's main landmark without changing the layout grid */
+.app-main { display: contents; }
+.app-main > * { min-width: 0; }
+.sw-end .btn { min-width: 220px; justify-content: center; }
