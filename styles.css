@@ -713,3 +713,14 @@ th.c-sel { padding-top: 10px; }
   .listbtn { min-height: 48px; }
 }
 @media (max-width: 700px) and (prefers-reduced-motion: reduce) { .listbar { transition: none; } }
+
+/* Password fields: eye button to show / hide */
+.pwwrap { position: relative; display: block; }
+.pwwrap input { width: 100%; padding-right: 48px; box-sizing: border-box; }
+.pwtoggle { appearance: none; position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px;
+  display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.pwtoggle:hover, .pwtoggle[aria-pressed="true"] { color: var(--ink); }
+.pwtoggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.pwtoggle svg { width: 20px; height: 20px; fill: currentColor; }
+.pwtoggle .eye-off, .pwtoggle[aria-pressed="true"] .eye-on { display: none; }
+.pwtoggle[aria-pressed="true"] .eye-off { display: block; }

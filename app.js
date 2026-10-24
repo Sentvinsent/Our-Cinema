@@ -1473,9 +1473,27 @@
     $("#pwUser").value = email || "";
     $("#pwNew").value = ""; $("#pwRepeat").value = "";
     $("#pwMsg").textContent = ""; $("#pwMsg").classList.remove("ok");
+    hideAllPw();
     $("#pwCancel").hidden = first;
     setTimeout(() => $("#pwNew").focus(), 50);
   }
+
+  // Eye button next to each password field: show / hide what you typed.
+  function setPwVisible(btn, show) {
+    const input = document.getElementById(btn.dataset.for); if (!input) return;
+    input.type = show ? "text" : "password";
+    btn.setAttribute("aria-pressed", String(show));
+    btn.setAttribute("aria-label", show ? "Сховати пароль" : "Показати пароль");
+  }
+  const hideAllPw = () => document.querySelectorAll(".pwtoggle").forEach((b) => setPwVisible(b, false));
+  document.querySelectorAll(".pwtoggle").forEach((b) => {
+    b.addEventListener("pointerdown", (e) => e.preventDefault()); // keep the keyboard open on phones
+    b.addEventListener("click", () => {
+      const input = document.getElementById(b.dataset.for), end = input.value.length;
+      setPwVisible(b, b.getAttribute("aria-pressed") !== "true");
+      if (document.activeElement === input) try { input.setSelectionRange(end, end); } catch (e) {}
+    });
+  });
 
   function cooldownLeft() {
     let until = 0;
@@ -1533,7 +1551,7 @@
       else showGate("Не вдалося увійти: " + error.message);
       return;
     }
-    loginPassword.value = "";
+    loginPassword.value = ""; hideAllPw();
   });
 
   linkBtn.addEventListener("click", async () => {
