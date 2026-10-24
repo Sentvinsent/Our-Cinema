@@ -980,3 +980,13 @@ body.ov-open .toast { top: calc(12px + env(safe-area-inset-top, 0px)); bottom: a
 .app-main { display: contents; }
 .app-main > * { min-width: 0; }
 .sw-end .btn { min-width: 220px; justify-content: center; }
+
+/* ===================== Add to Home Screen (iPhone / iPad) ===================== */
+.overlay.ios-install { align-items: center; }
+.ios-sheet { max-width: 460px; gap: 12px; }
+.ios-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.ios-steps li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; font-size: 15px; line-height: 1.45; }
+.ios-n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); font-weight: 600; font-size: 14px; }
+.ios-share { width: 18px; height: 18px; fill: var(--accent); vertical-align: -3px; margin: 0 1px; }
+.ios-note { margin: 2px 0 0; font-size: 13px; color: var(--muted); line-height: 1.45; }
+@media (max-width: 700px) { .overlay.ios-install { align-items: flex-end; padding: 0; } .ios-sheet { border-radius: 18px 18px 0 0; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); } }

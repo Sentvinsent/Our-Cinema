@@ -1766,11 +1766,33 @@
   window.addEventListener("appinstalled", () => { installEvt = null; $("#installBtn").hidden = true; toast(T("Застосунок встановлено")); });
   $("#installBtn").addEventListener("click", async () => {
     setMenu(false);
-    if (!installEvt) return;
+    if (!installEvt) { if (isIOS) openIosInstall(); return; }
     installEvt.prompt();
     try { await installEvt.userChoice; } catch (e) {}
     installEvt = null; $("#installBtn").hidden = true;
   });
+
+  // iPhone / iPad: Safari has no install prompt, so the same menu item shows how to add the site to the Home Screen.
+  const isIPad = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1 || /iPad/.test(navigator.userAgent);
+  const isIOS = isIPad || /iPhone|iPod/.test(navigator.userAgent);
+  const standalone = () => navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+  const SHARE = '<svg class="ios-share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6 16.4 7 15 8.4l-2-2V15h-2V6.4l-2 2L7.6 7 12 2.6zM5 10h4v2H7v8h10v-8h-2v-2h4v12H5V10z"/></svg>';
+  function fillIosInstall() {
+    const dev = isIPad ? "iPad" : "iPhone";
+    $("#iosH").textContent = T("Встановити на {d}", { d: dev });
+    const steps = [
+      T("Відкрийте цей сайт у Safari. Chrome теж підійде, якщо на {d} iOS 16.4 чи новіша.", { d: dev }),
+      T("Натисніть «Поділитися» {i} на панелі браузера. У новіших iOS ця кнопка може бути в меню «•••».", { i: SHARE }),
+      T("Прокрутіть список дій і виберіть «На Початковий екран» (англійською — «Add to Home Screen»)."),
+      T("Натисніть «Додати». «Наше кіно» з’явиться серед програм — відкривайте його звідти й один раз увійдіть знову."),
+    ];
+    $("#iosBody").innerHTML = `<ol class="ios-steps">${steps.map((s, i) => `<li><span class="ios-n" aria-hidden="true">${i + 1}</span><span>${s}</span></li>`).join("")}</ol>`
+      + `<p class="ios-note">${T("Сповіщення на телефоні працюють лише у встановленому застосунку (iOS 16.4 чи новіша). Після входу ввімкніть їх у меню профілю.")}</p>`;
+  }
+  function openIosInstall() { fillIosInstall(); openOverlay("#iosInstall"); }
+  $("#iosClose").addEventListener("click", () => closeOverlay("#iosInstall"));
+  $("#iosInstall").addEventListener("click", (e) => { if (e.target.id === "iosInstall") closeOverlay("#iosInstall"); });
+  if (isIOS && !standalone()) $("#installBtn").hidden = false;
 
   const pushOK = () => "PushManager" in window && "Notification" in window && "serviceWorker" in navigator && !!CFG.vapidPublicKey;
   const b64u = (str) => { const s = (str + "===".slice((str.length + 3) % 4)).replace(/-/g, "+").replace(/_/g, "/"); return Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); };
@@ -1844,6 +1866,7 @@
     recs = { status: "idle", items: [], sig: "", at: 0 }; // recommendations come back in the new language
     if (!$("#statsView").hidden) $("#statsBody").innerHTML = statsHTML();
     if (!$("#picker").hidden) closeOverlay("#picker");
+    if (!$("#iosInstall").hidden) fillIosInstall();
     render(false);
     if (loaded) ensureRecs();
     // follow you to your other devices, and phone notifications switch language too

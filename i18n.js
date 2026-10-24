@@ -266,6 +266,14 @@ window.OC_EN = {
   "TMDB не знає, скільки тут серій.": "TMDB doesn’t know how many episodes this has.",
   "Позначити серіал переглянутим": "Mark the series as watched",
   "{w} відновив {t}": "{w} restored {t}", "{w} відновила {t}": "{w} restored {t}",
+
+  // add to Home Screen on iPhone / iPad
+  "Встановити на {d}": "Install on {d}",
+  "Відкрийте цей сайт у Safari. Chrome теж підійде, якщо на {d} iOS 16.4 чи новіша.": "Open this site in Safari. Chrome works too if your {d} has iOS 16.4 or newer.",
+  "Натисніть «Поділитися» {i} на панелі браузера. У новіших iOS ця кнопка може бути в меню «•••».": "Tap Share {i} in the browser’s toolbar. On newer iOS it may be inside the “•••” menu.",
+  "Прокрутіть список дій і виберіть «На Початковий екран» (англійською — «Add to Home Screen»).": "Scroll the list of actions and choose “Add to Home Screen”.",
+  "Натисніть «Додати». «Наше кіно» з’явиться серед програм — відкривайте його звідти й один раз увійдіть знову.": "Tap “Add”. Our Cinema appears among your apps — open it from there and sign in once more.",
+  "Сповіщення на телефоні працюють лише у встановленому застосунку (iOS 16.4 чи новіша). Після входу ввімкніть їх у меню профілю.": "Phone notifications work only in the installed app (iOS 16.4 or newer). After signing in, turn them on in the profile menu.",
 };
 
 // English singular/plural for the Ukrainian word forms the app uses (keyed by the first Ukrainian form).
