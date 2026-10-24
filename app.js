@@ -275,9 +275,17 @@
     const key = f.id + ":" + lang, open = expanded.has(key);
     return `<div class="desc${open ? " open" : ""}" ${lang === "ua" ? 'lang="uk"' : ""} data-act="desc" data-key="${key}" role="button" tabindex="0" aria-expanded="${open}">${esc(text)}</div>`;
   }
+  // You vote only for yourself (the column is picked from who is signed in); your partner's vote is shown read-only.
+  const myKey = () => (me === "Alina" ? "alina" : "aleks");
+  const theirKey = () => (me === "Alina" ? "aleks" : "alina");
   function voteHTML(f, who, showName) {
     const v = f[who] || "", Who = who === "aleks" ? "Алекс" : "Аліна";
-    return `<div class="vote ${who}" role="group" aria-label="Голос: ${Who}">${showName ? `<span class="vote-name">${Who}</span>` : ""}`
+    if (who !== myKey()) {
+      const txt = v === "yes" ? "Так" : v === "no" ? "Ні" : (who === "alina" ? "Ще не вирішила" : "Ще не вирішив");
+      return `<div class="vote ${who}">${showName ? `<span class="vote-name">${Who}</span>` : ""}`
+        + `<div class="vote-ro ${v || "none"}" aria-label="${Who}: ${txt}">${v ? (v === "yes" ? CHECK : CROSS) : ""}<span>${txt}</span></div></div>`;
+    }
+    return `<div class="vote ${who} mine" role="group" aria-label="Ваш голос">${showName ? `<span class="vote-name">Ваш голос</span>` : ""}`
       + `<div class="seg"><button class="vb yes${v === "yes" ? " on" : ""}" data-act="vote" data-id="${f.id}" data-who="${who}" data-val="yes" aria-pressed="${v === "yes"}">Так</button>`
       + `<button class="vb no${v === "no" ? " on" : ""}" data-act="vote" data-id="${f.id}" data-who="${who}" data-val="no" aria-pressed="${v === "no"}">Ні</button></div></div>`;
   }
@@ -314,6 +322,7 @@
   // ---------- where to watch, series progress, "new" badges ----------
   const fmtDate = (d) => { const t = d ? new Date(d + "T12:00:00") : null; return t && !isNaN(t) ? t.toLocaleDateString("uk-UA", { day: "numeric", month: "short" }) : "скоро"; };
   const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6L20.1 8.4 18.7 7z"/></svg>';
+  const CROSS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6 10.6 12 5 6.4z"/></svg>';
   function provHTML(f) {
     const p = f.providers;
     if (!p || f.watched) return "";
@@ -430,8 +439,8 @@
       <td class="c-desc">${descHTML(f, "ua")}</td>
       <td class="c-tr">${trailerHTML(f, "en", "Англ.")}</td>
       <td class="c-tr">${trailerHTML(f, "ua", "Укр.")}</td>
-      <td class="c-vote">${rateOrVote(f, "aleks", false)}</td>
-      <td class="c-vote">${rateOrVote(f, "alina", false)}</td>
+      <td class="c-vote">${rateOrVote(f, myKey(), false)}</td>
+      <td class="c-vote">${rateOrVote(f, theirKey(), false)}</td>
       <td class="c-watch">${watchHTML(f, "t")}</td>
       <td class="c-edit"><div class="row-tools">${editBtnHTML(f, true)}${delBtnHTML(f)}</div></td>
     </tr>`;
@@ -458,8 +467,8 @@
       ${startHTML(f) ? `<div class="card-start">${startHTML(f)}</div>` : ""}
       <div class="card-actions">
         <div class="card-votes${f.watched ? " is-rate" : ""}">
-          ${rateOrVote(f, "aleks", true)}
-          ${rateOrVote(f, "alina", true)}
+          ${rateOrVote(f, myKey(), true)}
+          ${rateOrVote(f, theirKey(), true)}
         </div>
         <div class="card-tools">
           ${watchHTML(f, "c")}
@@ -1034,6 +1043,7 @@
     else if (act === "vote") {
       const f = films.find((x) => x.id === id); if (!f) return;
       const who = el.dataset.who;
+      if (who !== myKey()) return;
       patchFilm(id, { [who]: f[who] === el.dataset.val ? "" : el.dataset.val });
       // small press feedback on the re-rendered switch (only if the film stays in this list)
       if (motionOK()) requestAnimationFrame(() => document.querySelectorAll(`[data-act="vote"][data-id="${id}"][data-who="${who}"].on`)
@@ -1611,6 +1621,9 @@
     $("#whoName").textContent = "Ви увійшли як " + (NAME[me] || me);
     const av = $("#acctBtn"); av.classList.toggle("is-alina", me === "Alina"); av.classList.toggle("is-aleks", me !== "Alina");
     $("#avatarLetter").textContent = (NAME[me] || me || "?").charAt(0);
+    const [h1, h2] = document.querySelectorAll("thead .c-vote");
+    h1.className = `c-vote th-${myKey()}`; h1.textContent = "Ви · " + NAME[me];
+    h2.className = `c-vote th-${theirKey()}`; h2.textContent = NAME[partner()];
     const meta = session.user.user_metadata || {};
     if (!meta.password_set) { showPwGate(true, session.user.email); return; }
     showApp();

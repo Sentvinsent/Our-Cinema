@@ -11,7 +11,8 @@ A private, shared watchlist for Aleks and Alina.
   both names, year, runtime, genres, EN and UA descriptions, the poster, and the YouTube
   links for the English trailer and (when TMDB lists one) the Ukrainian trailer.
 - Trailers play inside the page.
-- Each film has Yes/No votes for Aleks and Alina and a Watched checkbox. The tab follows the votes:
+- Each film has a Yes/No vote for whoever is signed in (your partner's vote is shown read-only; the database
+  only lets each of you change your own) and a Watched checkbox. The tab follows the votes:
   both Yes → Agreed, one No → Declined by that person, both No → Declined by both. Watched overrides all.
 - Once a title is marked Watched, the Yes/No votes turn into 1–10 star ratings for Aleks and Alina
   (one row of ten stars each; tap the same star again to clear it); the average shows as a ★ badge next to the title.

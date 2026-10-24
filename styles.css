@@ -724,3 +724,16 @@ th.c-sel { padding-top: 10px; }
 .pwtoggle svg { width: 20px; height: 20px; fill: currentColor; }
 .pwtoggle .eye-off, .pwtoggle[aria-pressed="true"] .eye-on { display: none; }
 .pwtoggle[aria-pressed="true"] .eye-off { display: block; }
+
+/* Partner's vote: read-only, same footprint as your Так/Ні switch */
+.vote-ro { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 4px 10px; border-radius: 10px;
+  border: 1px dashed var(--line); font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+.vote-ro svg { width: 15px; height: 15px; fill: currentColor; flex: none; }
+.vote-ro.yes { border-style: solid; border-color: rgba(92, 229, 200, .35); background: var(--yes-bg); color: var(--yes); }
+.vote-ro.no { border-style: solid; border-color: rgba(229, 138, 138, .35); background: var(--no-bg); color: var(--no); }
+.vote-ro.none span { font-size: 12px; }
+.card-votes .vote-ro { width: 100%; min-height: 44px; font-size: 15px; box-sizing: border-box; }
+.card-votes .vote-ro.none span { font-size: 14px; }
+.c-vote .vote-ro { min-height: 32px; }
+.c-vote .vote-ro.none { white-space: normal; text-align: center; line-height: 1.2; }
+.card-votes .vote.mine .vote-name { color: var(--accent); }

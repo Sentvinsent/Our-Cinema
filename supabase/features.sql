@@ -63,3 +63,20 @@ begin
     create policy "own subs remove" on public.push_subs for delete to authenticated using (member = public.member_name());
   end if;
 end $$;
+
+-- ---------- votes: each of you can change only your own Так/Ні ----------
+create or replace function public.films_own_vote()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare who text := public.member_name();
+begin
+  if who = 'Aleks' then new.alina := old.alina;
+  elsif who = 'Alina' then new.aleks := old.aleks;
+  end if;
+  return new;
+end;
+$$;
+create or replace trigger films_own_vote before update on public.films
+  for each row execute function public.films_own_vote();
