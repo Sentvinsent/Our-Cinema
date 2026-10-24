@@ -64,7 +64,7 @@ begin
   end if;
 end $$;
 
--- ---------- votes: each of you can change only your own Так/Ні ----------
+-- ---------- votes and ratings: each of you can change only your own ----------
 create or replace function public.films_own_vote()
 returns trigger
 language plpgsql
@@ -72,8 +72,8 @@ set search_path = ''
 as $$
 declare who text := public.member_name();
 begin
-  if who = 'Aleks' then new.alina := old.alina;
-  elsif who = 'Alina' then new.aleks := old.aleks;
+  if who = 'Aleks' then new.alina := old.alina; new.alina_rating := old.alina_rating;
+  elsif who = 'Alina' then new.aleks := old.aleks; new.aleks_rating := old.aleks_rating;
   end if;
   return new;
 end;

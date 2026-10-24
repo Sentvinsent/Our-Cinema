@@ -75,6 +75,7 @@ window.OC_EN = {
   "{n} {w} з 10": "{n} {w} out of 10",
   "Оцінка: {who}": "Rating: {who}",
   "Середня оцінка з 10": "Average rating out of 10",
+  "Твоя оцінка": "Your rating", "ще не оцінила": "hasn’t rated yet", "ще не оцінив": "hasn’t rated yet",
   "скоро": "soon",
   "Лише оренда або купівля": "Rent or buy only",
   "Немає на стрімінгах у Польщі": "Not streaming in Poland",

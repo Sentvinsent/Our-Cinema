@@ -346,9 +346,14 @@
     }
     const val = `<span class="rate-val${r ? "" : " none"}">${r ? `${r}<small>/10</small>` : "—<small>/10</small>"}</span>`;
     return `<div class="vote rate ${who}">`
-      + (showName ? `<div class="rate-head"><span class="vote-name">${Who}</span>${val}</div>` : "")
+      + (showName ? `<div class="rate-head"><span class="vote-name">${who === myKey() ? T("Твоя оцінка") : Who}</span>${val}</div>` : "")
       + `<div class="stars" role="radiogroup" aria-label="${T("Оцінка: {who}", { who: Who })}">${s}</div>`
       + (showName ? "" : val) + `</div>`;
+  }
+  function theirRatingHTML(f) {
+    const r = f[theirKey() + "_rating"], W = NAME[partner()];
+    return r ? `<div class="rate-ro"><span>${W}</span><b>${STAR}${r}<small>/10</small></b></div>`
+      : `<div class="rate-ro none"><span>${W}</span><em>${T(partner() === "Alina" ? "ще не оцінила" : "ще не оцінив")}</em></div>`;
   }
   function scoreOf(f) {
     const rs = [f.aleks_rating, f.alina_rating].filter((x) => x >= 1);
@@ -492,7 +497,7 @@
       <td class="c-tr">${trailerHTML(f, "en", T("Англ."))}</td>
       <td class="c-tr">${trailerHTML(f, "ua", T("Укр."))}</td>
       <td class="c-vote">${rateOrVote(f, myKey(), false)}</td>
-      <td class="c-vote">${f.watched ? rateOrVote(f, theirKey(), false) : wantHTML(f) || '<span class="dim">—</span>'}</td>
+      <td class="c-vote">${f.watched ? theirRatingHTML(f) : wantHTML(f) || '<span class="dim">—</span>'}</td>
       <td class="c-watch">${watchHTML(f, "t")}</td>
       <td class="c-edit"><div class="row-tools">${editBtnHTML(f, true)}${delBtnHTML(f)}</div></td>
     </tr>`;
@@ -522,7 +527,7 @@
   }
   function actionHTML(f) {
     const tb = tabOf(f);
-    if (tb === "watched") return `<div class="card-votes is-rate">${starsHTML(f, myKey(), true)}${starsHTML(f, theirKey(), true)}</div>`;
+    if (tb === "watched") return `<div class="card-votes is-rate">${starsHTML(f, myKey(), true)}</div>`;
     if (tb === "watching") return compactProgHTML(f);
     if (tb === "agreed") return f.media_type === "tv"
       ? `<button type="button" class="btn primary cc-btn" data-act="start" data-id="${f.id}">${PLAY}${T("Почали дивитись")}</button>`
@@ -554,7 +559,7 @@
       : `<div class="dt-none">${T(p.paid ? "Лише оренда або купівля" : "Немає на стрімінгах у Польщі")}</div>`;
     const tr = trailersHTML(f);
     let acts = "";
-    if (f.watched) acts = `<div class="card-votes is-rate">${starsHTML(f, myKey(), true)}${starsHTML(f, theirKey(), true)}</div>`;
+    if (f.watched) acts = `<div class="card-votes is-rate">${starsHTML(f, myKey(), true)}${theirRatingHTML(f)}</div>`;
     else acts = voteHTML(f, myKey(), true);
     const prog = progressHTML(f), start = startHTML(f);
     return `
@@ -1300,6 +1305,7 @@
     }
     else if (act === "rate") {
       const f = films.find((x) => x.id === id); if (!f) return;
+      if (el.dataset.who !== myKey()) return;
       const col = el.dataset.who + "_rating", val = Number(el.dataset.val);
       buzz(8);
       patchFilm(id, { [col]: f[col] === val ? null : val }); // tapping the current star again clears it
