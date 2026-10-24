@@ -372,6 +372,13 @@
     if (quiet && !subs.length) return "";
     const label = mode === "row" ? `<span class="prov-l">${T("Де дивитись")}</span>` : "";
     if (!subs.length) return `<div class="prov prov-${mode}">${label}<span class="ptag none">${T(p.paid ? "Лише оренда або купівля" : "Немає на стрімінгах у Польщі")}</span></div>`;
+    if (mode === "mini") {
+      const top = subs.slice(0, 4), more = subs.length - top.length;
+      return `<span class="pmini" role="list" aria-label="${T("Де дивитись у Польщі")}">${top.map((x) => x.l
+        ? `<img role="listitem" src="${esc(IMG + "w45" + x.l)}" alt="${esc(x.n)}" title="${esc(x.n)}" loading="lazy">`
+        : `<span role="listitem" class="pm-l" title="${esc(x.n)}">${esc(x.n.charAt(0))}</span>`).join("")}`
+        + (more > 0 ? `<span class="pm-more" title="${esc(subs.slice(4).map((x) => x.n).join(", "))}">+${more}</span>` : "") + `</span>`;
+    }
     const top = subs.slice(0, mode === "icons" ? 5 : 4), more = subs.length - top.length;
     const logo = (x) => (x.l ? `<img src="${esc(IMG + "w45" + x.l)}" alt="" loading="lazy">` : `<span class="plogo">${esc(x.n.charAt(0))}</span>`);
     const chip = (x) => mode === "icons"
@@ -478,8 +485,8 @@
   function rowHTML(f) {
     return `<tr data-key="${f.id}">
       <td class="c-poster">${posterHTML(f)}</td>
-      <td class="c-name"><div class="badges">${kindHTML(f)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}</div><div class="title-en tlink" data-act="open" data-id="${f.id}" role="button" tabindex="0">${f.name_en ? esc(f.name_en) : '<span class="dim">—</span>'}</div>${metaHTML(f)}${fillHTML(f)}</td>
-      <td class="c-name"><div class="title-ua" lang="uk">${f.name_ua ? esc(f.name_ua) : '<span class="dim">—</span>'}</div>${provHTML(f, "icons")}${startHTML(f)}</td>
+      <td class="c-name"><div class="badges">${kindHTML(f)}${provHTML(f, "mini", true)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}</div><div class="title-en tlink" data-act="open" data-id="${f.id}" role="button" tabindex="0">${f.name_en ? esc(f.name_en) : '<span class="dim">—</span>'}</div>${metaHTML(f)}${fillHTML(f)}</td>
+      <td class="c-name"><div class="title-ua" lang="uk">${f.name_ua ? esc(f.name_ua) : '<span class="dim">—</span>'}</div>${startHTML(f)}</td>
       <td class="c-desc">${descHTML(f, "en")}</td>
       <td class="c-desc">${descHTML(f, "ua")}</td>
       <td class="c-tr">${trailerHTML(f, "en", T("Англ."))}</td>
@@ -503,11 +510,10 @@
       <div class="cc-main" data-act="open" data-id="${f.id}" role="button" tabindex="0" aria-label="${T("Деталі: {t}", { t: esc(t) })}">
         <div class="cc-poster">${posterImg(f)}</div>
         <div class="cc-info">
-          <div class="badges">${kindHTML(f)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}${wantHTML(f)}</div>
+          <div class="badges">${kindHTML(f)}${provHTML(f, "mini", true)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}${wantHTML(f)}</div>
           <div class="cc-title">${esc(t)}</div>
           ${second ? `<div class="cc-sub">${esc(second)}</div>` : ""}
           ${metaHTML(f)}${fillHTML(f)}
-          ${provHTML(f, "icons", true)}
         </div>
         <span class="cc-more">${DOTS}</span>
       </div>
@@ -773,10 +779,10 @@
     return `<div class="sw-card" id="swCard" data-id="${f.id}">
       <div class="sw-poster">${posterImg(f, "w500")}<span class="sw-stamp yes">${T("Так")}</span><span class="sw-stamp no">${T("Ні")}</span></div>
       <div class="sw-info">
-        <div class="badges">${kindHTML(f)}${wantHTML(f)}</div>
+        <div class="badges">${kindHTML(f)}${provHTML(f, "mini", true)}${wantHTML(f)}</div>
         <div class="sw-title">${esc(t)}</div>
         ${second ? `<div class="sw-sub">${esc(second)}</div>` : ""}
-        ${metaHTML(f)}${provHTML(f, "icons", true)}
+        ${metaHTML(f)}
         ${desc ? `<p class="sw-desc">${esc(desc)}</p>` : ""}
         ${trailersHTML(f) ? `<div class="sw-trailers">${trailersHTML(f)}</div>` : ""}
       </div>
