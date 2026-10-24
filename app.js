@@ -3,6 +3,40 @@
 
   const CFG = window.OUR_CINEMA_CONFIG || {};
   const $ = (s) => document.querySelector(s);
+
+  // ---------- language: the Ukrainian text is the source, English comes from i18n.js ----------
+  const EN = window.OC_EN || {}, EN_PL = window.OC_EN_PL || {}, GENRE_EN = window.OC_GENRE_EN || {};
+  let LANG = "uk";
+  try { const l = localStorage.getItem("oc-lang"); if (l === "uk" || l === "en") LANG = l; } catch (e) {}
+  // T("Додано «{t}»", { t: "Dune" }) → "Додано «Dune»" or "Added “Dune”"
+  function T(s, v) {
+    let out = LANG === "en" && EN[s] != null ? EN[s] : s;
+    if (v) out = out.replace(/\{(\w+)\}/g, (m, k) => (v[k] != null ? v[k] : m));
+    return out;
+  }
+  const isEn = () => LANG === "en";
+  const LOCALE = () => (LANG === "en" ? "en-GB" : "uk-UA");
+  const dec = (x) => (Math.round(x * 10) / 10).toLocaleString(LOCALE());
+  // Remember the page's own Ukrainian text so it can be swapped back and forth.
+  const STATIC_TEXT = [], STATIC_ATTR = [];
+  (function captureStatic() {
+    const cyr = /[А-Яа-яІіЇїЄєҐґ]/;
+    const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n; (n = walk.nextNode());) if (cyr.test(n.nodeValue)) STATIC_TEXT.push([n, n.nodeValue]);
+    for (const el of document.querySelectorAll("[placeholder],[aria-label],[title]"))
+      for (const a of ["placeholder", "aria-label", "title"]) { const v = el.getAttribute(a); if (v && cyr.test(v)) STATIC_ATTR.push([el, a, v]); }
+  })();
+  function applyStatic() {
+    for (const [n, uk] of STATIC_TEXT) {
+      if (!n.isConnected) continue;
+      const m = uk.match(/^(\s*)([\s\S]*?)(\s*)$/);
+      n.nodeValue = m[1] + T(m[2]) + m[3];
+    }
+    for (const [el, a, uk] of STATIC_ATTR) el.setAttribute(a, T(uk));
+    document.documentElement.lang = LANG;
+    document.title = T("Наше кіно");
+    document.querySelectorAll("[data-lang]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === LANG)));
+  }
   const IMG = "https://image.tmdb.org/t/p/";
   const TABS = [
     ["proposed", "Запропоновані"], ["agreed", "Погоджені"], ["watching", "Дивимось"], ["watched", "Переглянуті"],
@@ -24,6 +58,7 @@
     both: ["Обоє нічого не відхилили", "Тут назви, за які ви обоє проголосували «Ні»."],
   };
   const NAME = { Aleks: "Алекс", Alina: "Аліна" };
+  const setNames = () => { NAME.Aleks = T("Алекс"); NAME.Alina = T("Аліна"); };
   // TMDB genre names (English) → Ukrainian, for films saved before genres were stored in Ukrainian.
   const GENRE_UA = {
     "Action": "Бойовик", "Adventure": "Пригоди", "Animation": "Анімація", "Comedy": "Комедія", "Crime": "Кримінал",
@@ -34,8 +69,10 @@
     "Sci-Fi & Fantasy": "Фантастика і фентезі", "Soap": "Мильна опера", "Talk": "Ток-шоу", "War & Politics": "Війна і політика",
   };
   const genreUa = (g) => GENRE_UA[g] || g;
+  const genreShow = (g) => { const ua = genreUa(g); return isEn() ? GENRE_EN[ua] || (GENRE_UA[g] ? g : ua) : ua; };
   // Ukrainian plural: plural(5, ["фільм", "фільми", "фільмів"]) → "фільмів"
   function plural(n, forms) {
+    if (LANG === "en") { const e = EN_PL[forms[0]] || [forms[0], forms[0]]; return n === 1 ? e[0] : e[1]; }
     const a = Math.abs(n) % 100, b = a % 10;
     if (a > 10 && a < 20) return forms[2];
     if (b === 1) return forms[0];
@@ -72,7 +109,8 @@
   const num = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? Math.round(n) : null; };
   const norm = (s) => String(s || "").toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]+/gu, "");
   const hash = (s) => { let x = 0; for (const c of String(s)) x = (x * 31 + c.codePointAt(0)) >>> 0; return x; };
-  const titleOf = (f) => f.name_ua || f.name_en || "Без назви";
+  const titleOf = (f) => (isEn() ? f.name_en || f.name_ua : f.name_ua || f.name_en) || T("Без назви");
+  const otherTitle = (f) => { const o = isEn() ? f.name_ua : f.name_en; return o && norm(o) !== norm(titleOf(f)) ? o : ""; };
   const isCyr = (s) => /[Ѐ-ӿ]/.test(s);
   const ytUrl = (key) => (key ? "https://www.youtube.com/watch?v=" + key : "");
   function ytId(url) {
@@ -122,11 +160,11 @@
     const s = $("#status"); s.textContent = msg || ""; s.hidden = !msg; s.classList.toggle("err", !!err);
   }
   function dbErr(e) {
-    if (!e) return "Щось пішло не так. Спробуйте ще раз.";
-    if (e.code === "23505") return "Цей фільм уже є в списку.";
-    if (e.code === "42501" || /row-level security/i.test(e.message || "")) return "Цей обліковий запис не може змінювати список.";
-    if (/JWT|token/i.test(e.message || "")) return "Сеанс завершився. Оновіть сторінку.";
-    return "Не вдалося зберегти. Перевірте з’єднання і спробуйте ще раз.";
+    if (!e) return T("Щось пішло не так. Спробуйте ще раз.");
+    if (e.code === "23505") return T("Цей фільм уже є в списку.");
+    if (e.code === "42501" || /row-level security/i.test(e.message || "")) return T("Цей обліковий запис не може змінювати список.");
+    if (/JWT|token/i.test(e.message || "")) return T("Сеанс завершився. Оновіть сторінку.");
+    return T("Не вдалося зберегти. Перевірте з’єднання і спробуйте ще раз.");
   }
 
   // ---------- TMDB ----------
@@ -148,11 +186,11 @@
   }
   function tmdbMsg(e) {
     switch (e && e.kind) {
-      case "nokey": return "Ключ TMDB не налаштований на сервері.";
-      case "auth": return "TMDB не прийняв ключ сервера.";
-      case "rate": return "TMDB перевантажений. Спробуйте за кілька секунд.";
-      case "network": return "Не вдалося зв’язатися з TMDB. Перевірте з’єднання.";
-      default: return "Пошук у TMDB не вдався. Спробуйте ще раз.";
+      case "nokey": return T("Ключ TMDB не налаштований на сервері.");
+      case "auth": return T("TMDB не прийняв ключ сервера.");
+      case "rate": return T("TMDB перевантажений. Спробуйте за кілька секунд.");
+      case "network": return T("Не вдалося зв’язатися з TMDB. Перевірте з’єднання.");
+      default: return T("Пошук у TMDB не вдався. Спробуйте ще раз.");
     }
   }
 
@@ -244,34 +282,34 @@
   const TV_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2l4 4 4-4 1.4 1.4L14.8 6H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5.2L6.6 3.4 8 2zM4 8v10h16V8H4z"/></svg>';
   function kindHTML(f) {
     return f.media_type === "tv"
-      ? `<span class="kind kind-tv">${TV_ICON}Серіал</span>`
-      : `<span class="kind kind-movie">${FILM_ICON}Фільм</span>`;
+      ? `<span class="kind kind-tv">${TV_ICON}${T("Серіал")}</span>`
+      : `<span class="kind kind-movie">${FILM_ICON}${T("Фільм")}</span>`;
   }
   function trailerHTML(f, which, label) {
     const url = which === "en" ? f.trailer_en : f.trailer_ua;
-    if (!url) return f.tmdb_id ? `<span class="none">${which === "ua" ? "Українського трейлера на TMDB немає" : "Трейлера на TMDB немає"}</span>` : '<span class="dim">—</span>';
+    if (!url) return f.tmdb_id ? `<span class="none">${T(which === "ua" ? "Українського трейлера на TMDB немає" : "Трейлера на TMDB немає")}</span>` : '<span class="dim">—</span>';
     return `<button type="button" class="trl" data-act="play" data-id="${f.id}" data-which="${which}">${PLAY}<span>${esc(label)}</span></button>`;
   }
   function posterHTML(f) {
     const t = titleOf(f), src = posterSrc(f.poster_path, "w185");
-    if (src) return `<button class="poster" data-act="edit" data-id="${f.id}" aria-label="Редагувати: ${esc(t)}"><img src="${esc(src)}" alt="" loading="lazy"></button>`;
-    return `<button class="poster" data-act="edit" data-id="${f.id}" aria-label="Редагувати: ${esc(t)}"><span class="pg" style="--h:${hash(t) % 360}"><span class="pg-t">${esc(t)}</span><span class="pg-y">${esc(f.year || "")}</span></span></button>`;
+    if (src) return `<button class="poster" data-act="edit" data-id="${f.id}" aria-label="${T("Редагувати: {t}", { t: esc(t) })}"><img src="${esc(src)}" alt="" loading="lazy"></button>`;
+    return `<button class="poster" data-act="edit" data-id="${f.id}" aria-label="${T("Редагувати: {t}", { t: esc(t) })}"><span class="pg" style="--h:${hash(t) % 360}"><span class="pg-t">${esc(t)}</span><span class="pg-y">${esc(f.year || "")}</span></span></button>`;
   }
   function metaHTML(f) {
     const bits = [];
     if (f.year) bits.push(f.year);
-    if (f.runtime) bits.push(f.runtime + (f.media_type === "tv" ? " хв/серія" : " хв"));
-    if (Array.isArray(f.genres) && f.genres.length) bits.push(f.genres.slice(0, 3).map(genreUa).join(", "));
+    if (f.runtime) bits.push(f.runtime + T(f.media_type === "tv" ? " хв/серія" : " хв"));
+    if (Array.isArray(f.genres) && f.genres.length) bits.push(f.genres.slice(0, 3).map(genreShow).join(", "));
     return bits.length ? `<div class="meta">${esc(bits.join(" · "))}</div>` : "";
   }
   function fillHTML(f) {
-    if (busy.has(f.id)) return `<div class="fillstate"><span class="spin"></span>Заповнюємо з TMDB…</div>`;
-    if (!f.tmdb_id && f.match_state === "failed") return `<div class="fillstate">Не знайдено на TMDB. <button class="linkbtn" data-act="edit" data-id="${f.id}">Знайти</button></div>`;
+    if (busy.has(f.id)) return `<div class="fillstate"><span class="spin"></span>${T("Заповнюємо з TMDB…")}</div>`;
+    if (!f.tmdb_id && f.match_state === "failed") return `<div class="fillstate">${T("Не знайдено на TMDB.")} <button class="linkbtn" data-act="edit" data-id="${f.id}">${T("Знайти")}</button></div>`;
     return "";
   }
   function descHTML(f, lang) {
     const text = lang === "en" ? f.desc_en : f.desc_ua;
-    if (!text) return f.tmdb_id && lang === "ua" ? '<span class="none">Українського опису на TMDB немає</span>' : '<span class="dim">—</span>';
+    if (!text) return f.tmdb_id && lang === "ua" ? '<span class="none">' + T("Українського опису на TMDB немає") + '</span>' : '<span class="dim">—</span>';
     const key = f.id + ":" + lang, open = expanded.has(key);
     return `<div class="desc${open ? " open" : ""}" ${lang === "ua" ? 'lang="uk"' : ""} data-act="desc" data-key="${key}" role="button" tabindex="0" aria-expanded="${open}">${esc(text)}</div>`;
   }
@@ -279,33 +317,33 @@
   const myKey = () => (me === "Alina" ? "alina" : "aleks");
   const theirKey = () => (me === "Alina" ? "aleks" : "alina");
   function voteHTML(f, who, showName) {
-    const v = f[who] || "", Who = who === "aleks" ? "Алекс" : "Аліна";
+    const v = f[who] || "", Who = who === "aleks" ? NAME.Aleks : NAME.Alina;
     if (who !== myKey()) {
-      const txt = v === "yes" ? "Так" : v === "no" ? "Ні" : (who === "alina" ? "Ще не вирішила" : "Ще не вирішив");
+      const txt = T(v === "yes" ? "Так" : v === "no" ? "Ні" : (who === "alina" ? "Ще не вирішила" : "Ще не вирішив"));
       return `<div class="vote ${who}">${showName ? `<span class="vote-name">${Who}</span>` : ""}`
         + `<div class="vote-ro ${v || "none"}" aria-label="${Who}: ${txt}">${v ? (v === "yes" ? CHECK : CROSS) : ""}<span>${txt}</span></div></div>`;
     }
-    return `<div class="vote ${who} mine" role="group" aria-label="Ваш голос">${showName ? `<span class="vote-name">Ваш голос</span>` : ""}`
-      + `<div class="seg"><button class="vb yes${v === "yes" ? " on" : ""}" data-act="vote" data-id="${f.id}" data-who="${who}" data-val="yes" aria-pressed="${v === "yes"}">Так</button>`
-      + `<button class="vb no${v === "no" ? " on" : ""}" data-act="vote" data-id="${f.id}" data-who="${who}" data-val="no" aria-pressed="${v === "no"}">Ні</button></div></div>`;
+    return `<div class="vote ${who} mine" role="group" aria-label="${T("Ваш голос")}">${showName ? `<span class="vote-name">${T("Ваш голос")}</span>` : ""}`
+      + `<div class="seg"><button class="vb yes${v === "yes" ? " on" : ""}" data-act="vote" data-id="${f.id}" data-who="${who}" data-val="yes" aria-pressed="${v === "yes"}">${T("Так")}</button>`
+      + `<button class="vb no${v === "no" ? " on" : ""}" data-act="vote" data-id="${f.id}" data-who="${who}" data-val="no" aria-pressed="${v === "no"}">${T("Ні")}</button></div></div>`;
   }
   function watchHTML(f, prefix) {
-    return `<label class="watch${f.watched ? " on" : ""}"><input type="checkbox" id="${prefix}-w-${f.id}" data-act="watched" data-id="${f.id}" ${f.watched ? "checked" : ""}><span>Переглянуто</span></label>`;
+    return `<label class="watch${f.watched ? " on" : ""}"><input type="checkbox" id="${prefix}-w-${f.id}" data-act="watched" data-id="${f.id}" ${f.watched ? "checked" : ""}><span>${T("Переглянуто")}</span></label>`;
   }
   // Star ratings (1–10) replace the Так/Ні votes once a title is watched.
   // One row of ten stars per person; on phones the two people stack, so each row gets the full card width.
   const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.8 5.9 6.5.8-4.8 4.5 1.2 6.4L12 17.1l-5.7 3.1 1.2-6.4-4.8-4.5 6.5-.8z"/></svg>';
   const STAR_WORD = ["зірка", "зірки", "зірок"];
   function starsHTML(f, who, showName) {
-    const r = f[who + "_rating"] || 0, Who = who === "aleks" ? "Алекс" : "Аліна";
+    const r = f[who + "_rating"] || 0, Who = who === "aleks" ? NAME.Aleks : NAME.Alina;
     let s = "";
     for (let i = 1; i <= 10; i++) {
-      s += `<button type="button" class="st${i <= r ? " on" : ""}" data-act="rate" data-id="${f.id}" data-who="${who}" data-val="${i}" role="radio" aria-checked="${i === r}" aria-label="${i} ${plural(i, STAR_WORD)} з 10">${STAR}</button>`;
+      s += `<button type="button" class="st${i <= r ? " on" : ""}" data-act="rate" data-id="${f.id}" data-who="${who}" data-val="${i}" role="radio" aria-checked="${i === r}" aria-label="${T("{n} {w} з 10", { n: i, w: plural(i, STAR_WORD) })}">${STAR}</button>`;
     }
     const val = `<span class="rate-val${r ? "" : " none"}">${r ? `${r}<small>/10</small>` : "—<small>/10</small>"}</span>`;
     return `<div class="vote rate ${who}">`
       + (showName ? `<div class="rate-head"><span class="vote-name">${Who}</span>${val}</div>` : "")
-      + `<div class="stars" role="radiogroup" aria-label="Оцінка: ${Who}">${s}</div>`
+      + `<div class="stars" role="radiogroup" aria-label="${T("Оцінка: {who}", { who: Who })}">${s}</div>`
       + (showName ? "" : val) + `</div>`;
   }
   function scoreOf(f) {
@@ -315,21 +353,20 @@
   function scoreHTML(f) {
     const sc = f.watched ? scoreOf(f) : null;
     if (sc == null) return "";
-    const txt = (Math.round(sc * 10) / 10).toString().replace(".", ",");
-    return `<span class="score" title="Середня оцінка з 10">${STAR}${txt}</span>`;
+    return `<span class="score" title="${T("Середня оцінка з 10")}">${STAR}${dec(sc)}</span>`;
   }
   const rateOrVote = (f, who, showName) => f.watched ? starsHTML(f, who, showName) : voteHTML(f, who, showName);
   // ---------- where to watch, series progress, "new" badges ----------
-  const fmtDate = (d) => { const t = d ? new Date(d + "T12:00:00") : null; return t && !isNaN(t) ? t.toLocaleDateString("uk-UA", { day: "numeric", month: "short" }) : "скоро"; };
+  const fmtDate = (d) => { const t = d ? new Date(d + "T12:00:00") : null; return t && !isNaN(t) ? t.toLocaleDateString(LOCALE(), { day: "numeric", month: "short" }) : T("скоро"); };
   const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6L20.1 8.4 18.7 7z"/></svg>';
   const CROSS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6 10.6 12 5 6.4z"/></svg>';
   function provHTML(f) {
     const p = f.providers;
     if (!p || f.watched) return "";
     const subs = p.sub || [];
-    if (!subs.length) return `<div class="prov"><span class="ptag none">${p.paid ? "Лише оренда або купівля" : "Немає на стрімінгах у Польщі"}</span></div>`;
+    if (!subs.length) return `<div class="prov"><span class="ptag none">${T(p.paid ? "Лише оренда або купівля" : "Немає на стрімінгах у Польщі")}</span></div>`;
     const top = subs.slice(0, 4), more = subs.length - top.length;
-    return `<div class="prov" role="list" aria-label="Де дивитись у Польщі">${top.map((x) =>
+    return `<div class="prov" role="list" aria-label="${T("Де дивитись у Польщі")}">${top.map((x) =>
       `<span class="ptag" role="listitem">${x.l ? `<img src="${esc(IMG + "w45" + x.l)}" alt="" loading="lazy">` : ""}${esc(x.n)}</span>`).join("")}`
       + (more > 0 ? `<span class="ptag more" role="listitem">+${more}</span>` : "") + `</div>`;
   }
@@ -369,24 +406,24 @@
     if (f.media_type !== "tv" || !f.tv_info) return "";
     const nx = f.tv_info.next, aired = airedSeasons(f);
     if (f.watched) {
-      if (f.seen_s && aired > f.seen_s) return `<span class="sbadge hot">Новий сезон ${aired}</span>`;
-      if (nx && nx.e === 1 && nx.s > (f.seen_s || aired)) return `<span class="sbadge">Сезон ${nx.s} · ${fmtDate(nx.d)}</span>`;
+      if (f.seen_s && aired > f.seen_s) return `<span class="sbadge hot">${T("Новий сезон {n}", { n: aired })}</span>`;
+      if (nx && nx.e === 1 && nx.s > (f.seen_s || aired)) return `<span class="sbadge">${T("Сезон {s} · {d}", { s: nx.s, d: fmtDate(nx.d) })}</span>`;
       return "";
     }
-    if (f.next_s != null) return caughtUp(f) && nx ? `<span class="sbadge">Нова серія · ${fmtDate(nx.d)}</span>` : "";
-    return nx && nx.e === 1 && nx.s > 1 ? `<span class="sbadge">Сезон ${nx.s} · ${fmtDate(nx.d)}</span>` : "";
+    if (f.next_s != null) return caughtUp(f) && nx ? `<span class="sbadge">${T("Нова серія · {d}", { d: fmtDate(nx.d) })}</span>` : "";
+    return nx && nx.e === 1 && nx.s > 1 ? `<span class="sbadge">${T("Сезон {s} · {d}", { s: nx.s, d: fmtDate(nx.d) })}</span>` : "";
   }
   let seenAt = 0; // titles your partner added after this moment get a "Нове" badge
   const isNew = (f) => seenAt > 0 && f.created_by && me && f.created_by !== me && Date.parse(f.created_at) > seenAt;
-  const newHTML = (f) => (isNew(f) ? '<span class="nbadge">Нове</span>' : "");
+  const newHTML = (f) => (isNew(f) ? `<span class="nbadge">${T("Нове")}</span>` : "");
   function startHTML(f) {
     if (f.media_type !== "tv") return "";
     if (f.watched) {
       const aired = airedSeasons(f);
       return f.seen_s && aired > f.seen_s
-        ? `<button type="button" class="startbtn" data-act="newseason" data-id="${f.id}">${PLAY}Дивитись сезон ${f.seen_s + 1}</button>` : "";
+        ? `<button type="button" class="startbtn" data-act="newseason" data-id="${f.id}">${PLAY}${T("Дивитись сезон {n}", { n: f.seen_s + 1 })}</button>` : "";
     }
-    return f.next_s == null ? `<button type="button" class="startbtn" data-act="start" data-id="${f.id}">${PLAY}Почали дивитись</button>` : "";
+    return f.next_s == null ? `<button type="button" class="startbtn" data-act="start" data-id="${f.id}">${PLAY}${T("Почали дивитись")}</button>` : "";
   }
   function progressHTML(f) {
     if (f.media_type !== "tv" || f.next_s == null || f.watched) return "";
@@ -400,16 +437,16 @@
     const eOpts = Array.from({ length: maxE }, (_, i) => opt(i + 1, ce)).join("");
     const cu = caughtUp(f), ended = /ended|canceled/i.test(ti.status || "");
     let action;
-    if (cu && ended) action = `<button type="button" class="btn primary epbtn" data-act="finish" data-id="${f.id}">${CHECK}Усе переглянули — позначити серіал</button>`;
-    else if (cu) action = `<div class="prog-note">Ви наздогнали серіал. ${ti.next ? `Наступна серія вийде ${fmtDate(ti.next.d)}.` : "Нових серій поки не оголошено."}</div>`;
-    else action = `<button type="button" class="btn primary epbtn" data-act="ep-done" data-id="${f.id}">${CHECK}Переглянули серію ${ce}${seasons && seasons.length > 1 ? ` (сезон ${cs})` : ""}</button>`;
+    if (cu && ended) action = `<button type="button" class="btn primary epbtn" data-act="finish" data-id="${f.id}">${CHECK}${T("Усе переглянули — позначити серіал")}</button>`;
+    else if (cu) action = `<div class="prog-note">${T("Ви наздогнали серіал.")} ${ti.next ? T("Наступна серія вийде {d}.", { d: fmtDate(ti.next.d) }) : T("Нових серій поки не оголошено.")}</div>`;
+    else action = `<button type="button" class="btn primary epbtn" data-act="ep-done" data-id="${f.id}">${CHECK}${T("Переглянули серію {e}", { e: ce })}${seasons && seasons.length > 1 ? " " + T("(сезон {s})", { s: cs }) : ""}</button>`;
     const pct = total ? Math.min(100, Math.round(((Math.min(ce, total + 1) - 1) / total) * 100)) : 0;
     return `<div class="prog">
-      <div class="prog-top"><span class="prog-h">Наступна серія</span><button type="button" class="linkbtn prog-stop" data-act="stop" data-id="${f.id}">Перестали дивитись</button></div>
+      <div class="prog-top"><span class="prog-h">${T("Наступна серія")}</span><button type="button" class="linkbtn prog-stop" data-act="stop" data-id="${f.id}">${T("Перестали дивитись")}</button></div>
       <div class="prog-sel">
-        <label><span>Сезон</span><select data-act="prog-s" data-id="${f.id}" aria-label="Сезон">${sOpts}</select></label>
-        <label><span>Серія</span><select data-act="prog-e" data-id="${f.id}" aria-label="Серія">${eOpts}</select></label>
-        ${total ? `<span class="prog-of">з ${total} у сезоні</span>` : ""}
+        <label><span>${T("Сезон")}</span><select data-act="prog-s" data-id="${f.id}" aria-label="${T("Сезон")}">${sOpts}</select></label>
+        <label><span>${T("Серія")}</span><select data-act="prog-e" data-id="${f.id}" aria-label="${T("Серія")}">${eOpts}</select></label>
+        ${total ? `<span class="prog-of">${T("з {n} у сезоні", { n: total })}</span>` : ""}
       </div>
       ${total ? `<div class="prog-bar" aria-hidden="true"><span style="width:${pct}%"></span></div>` : ""}
       ${action}
@@ -418,16 +455,16 @@
   const PENCIL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm17.7-10.2a1 1 0 0 0 0-1.42l-2.33-2.33a1 1 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
   function editBtnHTML(f, iconOnly) {
     return iconOnly
-      ? `<button class="iconbtn sq" data-act="edit" data-id="${f.id}" aria-label="Редагувати: ${esc(titleOf(f))}" title="Редагувати">${PENCIL}</button>`
-      : `<button class="iconbtn" data-act="edit" data-id="${f.id}">Змінити</button>`;
+      ? `<button class="iconbtn sq" data-act="edit" data-id="${f.id}" aria-label="${T("Редагувати: {t}", { t: esc(titleOf(f)) })}" title="${T("Редагувати")}">${PENCIL}</button>`
+      : `<button class="iconbtn" data-act="edit" data-id="${f.id}">${T("Змінити")}</button>`;
   }
   const TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg>';
   function selHTML(f, prefix) {
     const on = selected.has(f.id);
-    return `<input type="checkbox" class="sel" id="${prefix}-s-${f.id}" data-act="select" data-id="${f.id}" ${on ? "checked" : ""} aria-label="Вибрати: ${esc(titleOf(f))}">`;
+    return `<input type="checkbox" class="sel" id="${prefix}-s-${f.id}" data-act="select" data-id="${f.id}" ${on ? "checked" : ""} aria-label="${T("Вибрати: {t}", { t: esc(titleOf(f)) })}">`;
   }
   function delBtnHTML(f) {
-    return `<button class="iconbtn sq del" data-act="delete" data-id="${f.id}" aria-label="Видалити: ${esc(titleOf(f))}" title="Видалити">${TRASH}</button>`;
+    return `<button class="iconbtn sq del" data-act="delete" data-id="${f.id}" aria-label="${T("Видалити: {t}", { t: esc(titleOf(f)) })}" title="${T("Видалити")}">${TRASH}</button>`;
   }
   function rowHTML(f) {
     return `<tr data-key="${f.id}"${selected.has(f.id) ? ' class="is-sel"' : ""}>
@@ -437,32 +474,36 @@
       <td class="c-name"><div class="title-ua" lang="uk">${f.name_ua ? esc(f.name_ua) : '<span class="dim">—</span>'}</div>${provHTML(f)}${startHTML(f)}</td>
       <td class="c-desc">${descHTML(f, "en")}</td>
       <td class="c-desc">${descHTML(f, "ua")}</td>
-      <td class="c-tr">${trailerHTML(f, "en", "Англ.")}</td>
-      <td class="c-tr">${trailerHTML(f, "ua", "Укр.")}</td>
+      <td class="c-tr">${trailerHTML(f, "en", T("Англ."))}</td>
+      <td class="c-tr">${trailerHTML(f, "ua", T("Укр."))}</td>
       <td class="c-vote">${rateOrVote(f, myKey(), false)}</td>
       <td class="c-vote">${rateOrVote(f, theirKey(), false)}</td>
       <td class="c-watch">${watchHTML(f, "t")}</td>
       <td class="c-edit"><div class="row-tools">${editBtnHTML(f, true)}${delBtnHTML(f)}</div></td>
     </tr>`;
   }
+  // trailer buttons, primary language first
+  function trailersHTML(f) {
+    const ua = f.trailer_ua ? trailerHTML(f, "ua", T("Трейлер укр.")) : "", en = f.trailer_en ? trailerHTML(f, "en", T("Трейлер англ.")) : "";
+    return isEn() ? en + ua : ua + en;
+  }
   function cardHTML(f) {
-    const tr = [f.trailer_ua ? trailerHTML(f, "ua", "Трейлер укр.") : "", f.trailer_en ? trailerHTML(f, "en", "Трейлер англ.") : ""].join("");
-    const main = f.name_ua || f.name_en || "Без назви";
-    const second = f.name_ua && f.name_en && norm(f.name_ua) !== norm(f.name_en) ? f.name_en : "";
+    const tr = trailersHTML(f);
+    const main = titleOf(f), second = otherTitle(f);
     return `<article data-key="${f.id}" class="card${selected.has(f.id) ? " is-sel" : ""}${f.media_type === "tv" ? " is-tv" : ""}">
       <label class="card-sel">${selHTML(f, "c")}</label>
       <div class="card-poster">${posterHTML(f)}</div>
       <div class="card-head">
         <div class="badges">${kindHTML(f)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}</div>
-        <div class="title-ua" lang="uk">${esc(main)}</div>
-        ${second ? `<div class="title-en" lang="en">${esc(second)}</div>` : ""}
+        <div class="title-ua">${esc(main)}</div>
+        ${second ? `<div class="title-en">${esc(second)}</div>` : ""}
         ${metaHTML(f)}${fillHTML(f)}${provHTML(f)}
       </div>
       ${progressHTML(f) ? `<div class="card-prog">${progressHTML(f)}</div>` : ""}
       ${tr ? `<div class="card-trailers">${tr}</div>` : ""}
       ${f.desc_en || f.desc_ua ? `<div class="card-desc">
-        ${f.desc_ua ? `<div><span class="lang">Укр.</span>${descHTML(f, "ua")}</div>` : ""}
-        ${f.desc_en ? `<div lang="en"><span class="lang">Англ.</span>${descHTML(f, "en")}</div>` : ""}
+        ${(isEn() ? ["en", "ua"] : ["ua", "en"]).map((l) => (l === "ua" ? f.desc_ua : f.desc_en)
+          ? `<div${l === "en" ? ' lang="en"' : ""}><span class="lang">${T(l === "ua" ? "Укр." : "Англ.")}</span>${descHTML(f, l)}</div>` : "").join("")}
       </div>` : ""}
       ${startHTML(f) ? `<div class="card-start">${startHTML(f)}</div>` : ""}
       <div class="card-actions">
@@ -518,30 +559,30 @@
     if (recs.status === "ready") counts.recs = recItems().length;
     const showN = (k) => !(k === "recs" && recs.status !== "ready");
     $("#tabs").innerHTML = TABS.map(([k, label]) =>
-      `<button class="tab" role="tab" data-tab="${k}" aria-selected="${k === tab}"><span>${label}</span>`
+      `<button class="tab" role="tab" data-tab="${k}" aria-selected="${k === tab}"><span>${T(label)}</span>`
       + (showN(k) ? `<span class="n">${counts[k]}</span>` : "")
-      + (fresh[k] ? '<span class="tdot" title="Є нові"></span>' : "") + `</button>`).join("");
+      + (fresh[k] ? `<span class="tdot" title="${T("Є нові")}"></span>` : "") + `</button>`).join("");
     // phones: one button showing the current list; tapping it opens all lists in a panel
     const cur = TABS.find((t) => t[0] === tab);
-    $("#listLabel").textContent = cur ? cur[1] : "";
+    $("#listLabel").textContent = cur ? T(cur[1]) : "";
     $("#listCount").textContent = showN(tab) ? counts[tab] : "";
     $("#listCount").hidden = !showN(tab);
     $("#listDot").hidden = !Object.keys(fresh).some((k) => k !== tab);
-    $("#listBtn").setAttribute("aria-label", `Список: ${cur ? cur[1] : ""}${showN(tab) ? ", " + counts[tab] : ""}. Змінити список`);
+    $("#listBtn").setAttribute("aria-label", T("Список: {l}. Змінити список", { l: (cur ? T(cur[1]) : "") + (showN(tab) ? ", " + counts[tab] : "") }));
     $("#listGrid").innerHTML = TABS.map(([k, label]) =>
       `<button type="button" class="ls-item" data-tab="${k}" aria-current="${k === tab}">`
-      + `<span class="ls-n">${showN(k) ? counts[k] : "…"}</span><span class="ls-l">${label}</span>`
-      + (fresh[k] ? '<span class="tdot" title="Є нові"></span>' : "") + `</button>`).join("");
+      + `<span class="ls-n">${showN(k) ? counts[k] : "…"}</span><span class="ls-l">${T(label)}</span>`
+      + (fresh[k] ? `<span class="tdot" title="${T("Є нові")}"></span>` : "") + `</button>`).join("");
     // «Відхилені»: who declined
     const dc = { all: 0, aleks: 0, alina: 0, both: 0 };
     for (const f of films) if (kindOK(f) && tabOf(f) === "declined") { dc.all++; dc[declOf(f)]++; }
     const df = $("#declFilter");
     df.hidden = tab !== "declined";
     df.innerHTML = DECL.map(([k, label]) =>
-      `<button type="button" data-decl="${k}" aria-pressed="${k === decl}">${label}<span class="n">${dc[k]}</span></button>`).join("");
+      `<button type="button" data-decl="${k}" aria-pressed="${k === decl}">${k === "aleks" ? NAME.Aleks : k === "alina" ? NAME.Alina : T(label)}<span class="n">${dc[k]}</span></button>`).join("");
     $("#app").classList.toggle("cards-only", CARDS_ONLY.has(tab));
     const watchedAll = films.filter((f) => f.watched).length;
-    $("#stats").textContent = loaded ? `${films.length} ${plural(films.length, ["назва", "назви", "назв"])} · переглянуто ${watchedAll}` : "";
+    $("#stats").textContent = loaded ? T("{n} {w} · переглянуто {k}", { n: films.length, w: plural(films.length, ["назва", "назви", "назв"]), k: watchedAll }) : "";
     document.querySelectorAll("#kindFilter [data-kind]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.kind === kind)));
     if (!loaded) return;
     setStatus("");
@@ -560,16 +601,15 @@
 
     const left = list.length - page.length, more = $("#more");
     more.hidden = left <= 0;
-    if (left > 0) $("#moreBtn").textContent = `Показати ще ${Math.min(PAGE, left)} · залишилось ${left}`;
-    $("#pageInfo").textContent = list.length > PAGE ? `Показано ${page.length} з ${list.length}` : "";
+    if (left > 0) $("#moreBtn").textContent = T("Показати ще {a} · залишилось {b}", { a: Math.min(PAGE, left), b: left });
+    $("#pageInfo").textContent = list.length > PAGE ? T("Показано {a} з {b}", { a: page.length, b: list.length }) : "";
 
     const empty = $("#empty");
     if (!list.length) {
       const what = kind === "tv" ? "серіалів" : kind === "movie" ? "фільмів" : "";
-      const [h, s] = q ? ["Нічого не знайдено", "У цьому списку немає назв, що відповідають пошуку."]
-        : what && films.some((f) => tabOf(f) === tab) ? ["Тут порожньо", `У цьому списку немає ${what}. Змініть фільтр «Усі / Фільми / Серіали».`]
-        : tab === "declined" && decl !== "all" ? EMPTY_DECL[decl]
-        : EMPTY[tab];
+      const [h, s] = q ? [T("Нічого не знайдено"), T("У цьому списку немає назв, що відповідають пошуку.")]
+        : what && films.some((f) => tabOf(f) === tab) ? [T("Тут порожньо"), T("У цьому списку немає {what}. Змініть фільтр «Усі / Фільми / Серіали».", { what: T(what) })]
+        : (tab === "declined" && decl !== "all" ? EMPTY_DECL[decl] : EMPTY[tab]).map((x) => T(x));
       empty.innerHTML = `<b>${esc(h)}</b>${esc(s)}`;
       empty.hidden = false; $("#tableWrap").hidden = true; $("#cards").hidden = true;
       if (before && motionOK()) empty.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: EASE });
@@ -614,7 +654,7 @@
   async function ensureRecs(force) {
     if (recs.status === "loading" || !loaded) return;
     const src = recSources();
-    const sig = src.map((x) => recKey(x.f.media_type, x.f.tmdb_id) + "*" + x.w).sort().join(",");
+    const sig = LANG + "|" + src.map((x) => recKey(x.f.media_type, x.f.tmdb_id) + "*" + x.w).sort().join(",");
     if (!force && recs.status === "ready" && recs.sig === sig && Date.now() - recs.at < 12 * 3600e3) return;
     if (!force) {
       try {
@@ -632,7 +672,7 @@
         while (i < src.length) {
           const { f, w } = src[i++];
           try {
-            const d = await tmdb(`/${f.media_type}/${f.tmdb_id}/recommendations`, { language: "uk-UA", page: "1" });
+            const d = await tmdb(`/${f.media_type}/${f.tmdb_id}/recommendations`, { language: isEn() ? "en-US" : "uk-UA", page: "1" });
             for (const r of d.results || []) {
               const type = r.media_type || f.media_type;
               if ((type !== "movie" && type !== "tv") || (r.vote_count || 0) < 30) continue;
@@ -662,8 +702,8 @@
     const img = r.poster
       ? `<span class="poster"><img src="${esc(IMG + "w185" + r.poster)}" alt="" loading="lazy"></span>`
       : `<span class="poster"><span class="pg" style="--h:${hash(r.title) % 360}"><span class="pg-t">${esc(r.title)}</span></span></span>`;
-    const kindB = r.type === "tv" ? `<span class="kind kind-tv">${TV_ICON}Серіал</span>` : `<span class="kind kind-movie">${FILM_ICON}Фільм</span>`;
-    const vote = r.vote ? `<span class="score" title="Оцінка на TMDB">TMDB ${(Math.round(r.vote * 10) / 10).toString().replace(".", ",")}</span>` : "";
+    const kindB = r.type === "tv" ? `<span class="kind kind-tv">${TV_ICON}${T("Серіал")}</span>` : `<span class="kind kind-movie">${FILM_ICON}${T("Фільм")}</span>`;
+    const vote = r.vote ? `<span class="score" title="${T("Оцінка на TMDB")}">TMDB ${dec(r.vote)}</span>` : "";
     const sub = r.original && norm(r.original) !== norm(r.title) ? r.original : "";
     return `<article class="card rec" data-key="${key}">
       <div class="card-poster">${img}</div>
@@ -672,12 +712,12 @@
         <div class="title-ua">${esc(r.title)}</div>
         ${sub ? `<div class="title-en">${esc(sub)}</div>` : ""}
         ${r.year ? `<div class="meta">${esc(r.year)}</div>` : ""}
-        <div class="because">Бо вам сподобалось: ${r.because.map((b) => "«" + esc(b) + "»").join(", ")}</div>
+        <div class="because">${T("Бо вам сподобалось:")} ${r.because.map((b) => (isEn() ? "“" + esc(b) + "”" : "«" + esc(b) + "»")).join(", ")}</div>
       </div>
       ${r.overview ? `<div class="card-desc"><div><div class="desc${open ? " open" : ""}" lang="uk" data-act="desc" data-key="${dk}" role="button" tabindex="0" aria-expanded="${open}">${esc(r.overview)}</div></div></div>` : ""}
       <div class="rec-actions">
-        <button type="button" class="btn primary" data-act="rec-add" data-type="${r.type}" data-tid="${r.id}" data-key2="${key}">+ Додати до списку</button>
-        <button type="button" class="btn" data-act="rec-hide" data-type="${r.type}" data-tid="${r.id}" data-key2="${key}">Не цікаво</button>
+        <button type="button" class="btn primary" data-act="rec-add" data-type="${r.type}" data-tid="${r.id}" data-key2="${key}">${T("+ Додати до списку")}</button>
+        <button type="button" class="btn" data-act="rec-hide" data-type="${r.type}" data-tid="${r.id}" data-key2="${key}">${T("Не цікаво")}</button>
       </div>
     </article>`;
   }
@@ -686,7 +726,7 @@
     visibleIds = []; selected.clear(); renderBulk();
     $("#tableWrap").hidden = true;
     const show = (h, t, spin) => {
-      empty.innerHTML = `<b>${spin ? '<span class="spin"></span>' : ""}${esc(h)}</b>${esc(t)}`;
+      empty.innerHTML = `<b>${spin ? '<span class="spin"></span>' : ""}${esc(T(h))}</b>${esc(T(t))}`;
       empty.hidden = false; $("#cards").hidden = true; more.hidden = true;
     };
     if (recs.status !== "ready") {
@@ -706,8 +746,8 @@
     }
     const page = list.slice(0, shown), left = list.length - page.length;
     more.hidden = left <= 0;
-    if (left > 0) $("#moreBtn").textContent = `Показати ще ${Math.min(PAGE, left)} · залишилось ${left}`;
-    $("#pageInfo").textContent = list.length > PAGE ? `Показано ${page.length} з ${list.length}` : "";
+    if (left > 0) $("#moreBtn").textContent = T("Показати ще {a} · залишилось {b}", { a: Math.min(PAGE, left), b: left });
+    $("#pageInfo").textContent = list.length > PAGE ? T("Показано {a} з {b}", { a: page.length, b: list.length }) : "";
     empty.hidden = true; $("#cards").hidden = false;
     $("#cards").innerHTML = page.map(recCardHTML).join("");
     play(before);
@@ -725,8 +765,8 @@
       all.disabled = total === 0;
     }
     if (!n) bulkArmed = false;
-    $("#bulkCount").textContent = `Вибрано: ${n}`;
-    $("#bulkDelete").textContent = bulkArmed ? "Точно видалити?" : "Видалити";
+    $("#bulkCount").textContent = T("Вибрано: {n}", { n });
+    $("#bulkDelete").textContent = T(bulkArmed ? "Точно видалити?" : "Видалити");
     $("#bulkDelete").classList.toggle("armed", bulkArmed);
     const bar = $("#bulk"), show = n > 0 && !$("#app").hidden;
     document.body.classList.toggle("has-bulk", show);
@@ -755,15 +795,15 @@
     render();
     const { error } = await sb.from("films").delete().in("id", ids);
     if (error) { films = films.concat(removed); render(); toast(dbErr(error)); return; }
-    const label = removed.length === 1 ? `Видалено «${titleOf(removed[0])}»` : `Видалено ${removed.length} ${plural(removed.length, FILMS)}`;
-    toast(label, { label: "Скасувати", run: () => restoreFilms(removed) });
+    const label = removed.length === 1 ? T("Видалено «{t}»", { t: titleOf(removed[0]) }) : T("Видалено {n} {w}", { n: removed.length, w: plural(removed.length, FILMS) });
+    toast(label, { label: T("Скасувати"), run: () => restoreFilms(removed) });
   }
   async function restoreFilms(rows) {
     const { data, error } = await sb.from("films").insert(rows.map((r) => ({ ...r }))).select();
     if (error) { toast(dbErr(error)); return; }
     for (const r of data || []) if (!films.some((f) => f.id === r.id)) films.push(r);
     render();
-    toast(rows.length === 1 ? "Відновлено" : `Відновлено ${rows.length} ${plural(rows.length, FILMS)}`);
+    toast(rows.length === 1 ? T("Відновлено") : T("Відновлено {n} {w}", { n: rows.length, w: plural(rows.length, FILMS) }));
   }
   for (const id of ["#selAll", "#selAllHead"]) $(id).addEventListener("change", (e) => {
     if (e.target.checked) visibleIds.forEach((x) => selected.add(x)); else selected.clear();
@@ -778,30 +818,29 @@
   // ---------- data ----------
   async function loadFilms() {
     const { data, error } = await sb.from("films").select("*").order("created_at", { ascending: false });
-    if (error) { setStatus("Не вдалося завантажити список. Оновіть сторінку.", true); return; }
+    if (error) { setStatus(T("Не вдалося завантажити список. Оновіть сторінку."), true); return; }
     films = data || []; loaded = true; render();
   }
   // ---------- partner activity: short toasts while the site is open ----------
   const partner = () => (me === "Alina" ? "Aleks" : "Alina");
   const said = (who, m, f) => (who === "Alina" ? f : m); // Ukrainian past tense agrees with gender
   const myDeletes = new Set();
+  const q2 = (t) => (isEn() ? `“${t}”` : `«${t}»`);
   function describe(prev, next) {
-    const who = next.updated_by, W = NAME[who] || "Хтось", t = `«${titleOf(next)}»`;
+    const who = next.updated_by, W = NAME[who] || T("Хтось"), t = q2(titleOf(next));
     for (const col of ["aleks", "alina"]) {
       if ((prev[col] || "") === (next[col] || "")) continue;
-      const forOther = col !== String(who || "").toLowerCase() ? ` за ${col === "aleks" ? "Алекса" : "Аліну"}` : "";
-      if (!next[col]) return `${W} ${said(who, "зняв", "зняла")} голос${forOther}: ${t}`;
-      return `${W} ${said(who, "проголосував", "проголосувала")}${forOther} «${next[col] === "yes" ? "Так" : "Ні"}»: ${t}`;
+      if (!next[col]) return T(said(who, "{w} зняв голос: {t}", "{w} зняла голос: {t}"), { w: W, t });
+      return T(said(who, "{w} проголосував «{v}»: {t}", "{w} проголосувала «{v}»: {t}"), { w: W, t, v: T(next[col] === "yes" ? "Так" : "Ні") });
     }
-    if (!prev.watched && next.watched) return `${W} ${said(who, "позначив", "позначила")} ${t} переглянутим`;
+    if (!prev.watched && next.watched) return T(said(who, "{w} позначив {t} переглянутим", "{w} позначила {t} переглянутим"), { w: W, t });
     for (const col of ["aleks_rating", "alina_rating"]) {
       if ((prev[col] || null) === (next[col] || null) || !next[col]) continue;
-      const forOther = col !== String(who || "").toLowerCase() + "_rating" ? ` (за ${col === "aleks_rating" ? "Алекса" : "Аліну"})` : "";
-      return `${W} ${said(who, "оцінив", "оцінила")} ${t} на ${next[col]}/10${forOther}`;
+      const forOther = col !== String(who || "").toLowerCase() + "_rating" ? " " + T(col === "aleks_rating" ? "(за Алекса)" : "(за Аліну)") : "";
+      return T(said(who, "{w} оцінив {t} на {r}/10", "{w} оцінила {t} на {r}/10"), { w: W, t, r: next[col] }) + forOther;
     }
-
-    if (prev.next_s == null && next.next_s != null) return `${W} ${said(who, "почав", "почала")} відстежувати ${t}`;
-    if (next.next_s != null && (prev.next_s !== next.next_s || prev.next_e !== next.next_e)) return `${t}: далі сезон ${next.next_s}, серія ${next.next_e}`;
+    if (prev.next_s == null && next.next_s != null) return T(said(who, "{w} почав відстежувати {t}", "{w} почала відстежувати {t}"), { w: W, t });
+    if (next.next_s != null && (prev.next_s !== next.next_s || prev.next_e !== next.next_e)) return T("{t}: далі сезон {s}, серія {e}", { t, s: next.next_s, e: next.next_e });
     return "";
   }
   let actQueue = [], actTimer = null;
@@ -810,7 +849,7 @@
     clearTimeout(actTimer);
     actTimer = setTimeout(() => {
       const q = actQueue; actQueue = [];
-      toast(q.length === 1 ? q[0] : `${q[q.length - 1]} (і ще ${q.length - 1} ${plural(q.length - 1, ["зміна", "зміни", "змін"])})`);
+      toast(q.length === 1 ? q[0] : T("{last} (і ще {n} {w})", { last: q[q.length - 1], n: q.length - 1, w: plural(q.length - 1, ["зміна", "зміни", "змін"]) }));
     }, 700);
   }
 
@@ -820,13 +859,13 @@
         if (p.eventType === "DELETE") {
           const id = p.old && p.old.id, prev = films.find((f) => f.id === id);
           films = films.filter((f) => f.id !== id);
-          if (prev && !myDeletes.has(id)) notifyAct(`${NAME[partner()]} ${said(partner(), "видалив", "видалила")} «${titleOf(prev)}»`);
+          if (prev && !myDeletes.has(id)) notifyAct(T(said(partner(), "{w} видалив {t}", "{w} видалила {t}"), { w: NAME[partner()], t: q2(titleOf(prev)) }));
         } else if (p.new) {
           const i = films.findIndex((f) => f.id === p.new.id), prev = i >= 0 ? films[i] : null;
           if (i >= 0) films[i] = p.new; else films.unshift(p.new);
           if (p.new.updated_by && p.new.updated_by !== me) {
             const msg = prev ? describe(prev, p.new)
-              : p.eventType === "INSERT" ? `${NAME[p.new.updated_by] || "Хтось"} ${said(p.new.updated_by, "додав", "додала")} «${titleOf(p.new)}»` : "";
+              : p.eventType === "INSERT" ? T(said(p.new.updated_by, "{w} додав {t}", "{w} додала {t}"), { w: NAME[p.new.updated_by] || T("Хтось"), t: q2(titleOf(p.new)) }) : "";
             if (msg) notifyAct(msg);
           }
         }
@@ -937,7 +976,7 @@
       list.innerHTML = items.map((r, i) => {
         const img = r.poster ? `<img src="${esc(IMG + "w92" + r.poster)}" alt="">` : '<span class="noimg"></span>';
         const sub = [r.year, r.original && r.original !== r.title ? r.original : ""].filter(Boolean).join(" · ");
-        const kind = r.type === "tv" ? `<span class="kind kind-tv">${TV_ICON}Серіал</span>` : `<span class="kind kind-movie">${FILM_ICON}Фільм</span>`;
+        const kind = r.type === "tv" ? `<span class="kind kind-tv">${TV_ICON}${T("Серіал")}</span>` : `<span class="kind kind-movie">${FILM_ICON}${T("Фільм")}</span>`;
         return `<li role="option" data-i="${i}" aria-selected="${i === active}">${img}<div style="min-width:0"><div class="s-t">${esc(r.title)}</div><div class="s-m">${kind}<span>${esc(sub)}</span></div></div></li>`;
       }).join("");
       list.hidden = false; input.setAttribute("aria-expanded", "true");
@@ -946,7 +985,7 @@
       const q = input.value.trim();
       if (q.length < 2) { items = []; close(); return; }
       const my = ++seq;
-      try { const res = await searchTitles(q); if (my !== seq) return; items = res; active = -1; paint(res.length ? "" : "На TMDB нічого не знайдено"); }
+      try { const res = await searchTitles(q); if (my !== seq) return; items = res; active = -1; paint(res.length ? "" : T("На TMDB нічого не знайдено")); }
       catch (e) { if (my === seq) paint(tmdbMsg(e)); }
     }, 300);
     input.addEventListener("input", run);
@@ -971,13 +1010,13 @@
   async function addFromResult(r, opts = {}) {
     showAddMsg("");
     const dup = films.find((f) => f.tmdb_id === r.id && f.media_type === r.type);
-    if (dup) { showAddMsg(`«${titleOf(dup)}» уже є в списку (вкладка «${TABS.find((t) => t[0] === tabOf(dup))[1]}»).`); return; }
+    if (dup) { showAddMsg(T("«{t}» уже є в списку (вкладка «{tab}»).", { t: titleOf(dup), tab: T(TABS.find((t) => t[0] === tabOf(dup))[1]) })); return; }
     addBtn.disabled = true; addBtn.classList.add("busy");
     try {
       const d = await fetchDetails(r.type, r.id);
       const row = await insertFilm(d);
-      if (row && opts.stay) toast(`Додано «${titleOf(row)}» до «Запропонованих»`, { label: "Відкрити", run: () => selectTab("proposed") });
-      else if (row) { addInput.value = ""; addSuggest.clear(); if (tab !== "proposed") selectTab("proposed"); toast(`Додано «${titleOf(row)}»`); }
+      if (row && opts.stay) toast(T("Додано «{t}» до «Запропонованих»", { t: titleOf(row) }), { label: T("Відкрити"), run: () => selectTab("proposed") });
+      else if (row) { addInput.value = ""; addSuggest.clear(); if (tab !== "proposed") selectTab("proposed"); toast(T("Додано «{t}»", { t: titleOf(row) })); }
       return !!row;
     } catch (e) { if (opts.stay) toast(tmdbMsg(e)); else showAddMsg(tmdbMsg(e)); return false; }
     finally { addBtn.disabled = false; addBtn.classList.remove("busy"); }
@@ -985,7 +1024,7 @@
   $("#addForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const q = addInput.value.trim();
-    if (!q) { showAddMsg("Спершу введіть назву."); return; }
+    if (!q) { showAddMsg(T("Спершу введіть назву.")); return; }
     addBtn.disabled = true;
     try {
       const res = await searchTitles(q);
@@ -993,7 +1032,7 @@
       const exact = res.filter((r) => norm(r.title) === norm(q) || norm(r.original) === norm(q));
       const best = exact.find((r) => r.type === "movie") || exact[0] || res[0];
       if (best) await addFromResult(best);
-      else showAddMsg(`На TMDB немає збігів для «${q}». Перевірте написання або спробуйте іншою мовою.`);
+      else showAddMsg(T("На TMDB немає збігів для «{q}». Перевірте написання або спробуйте іншою мовою.", { q }));
     } catch (err) { showAddMsg(tmdbMsg(err)); }
     finally { addBtn.disabled = false; }
   });
@@ -1059,7 +1098,7 @@
     else if (act === "start" || act === "newseason") {
       const f = films.find((x) => x.id === id); if (!f) return;
       const patch = act === "start" ? { next_s: 1, next_e: 1 } : { watched: false, watched_at: null, next_s: (f.seen_s || 0) + 1, next_e: 1 };
-      patchFilm(id, patch).then((ok) => { if (ok && tab !== "watching") toast(`«${titleOf(f)}» тепер у «Дивимось»`, { label: "Відкрити", run: () => selectTab("watching") }); });
+      patchFilm(id, patch).then((ok) => { if (ok && tab !== "watching") toast(T("«{t}» тепер у «Дивимось»", { t: titleOf(f) }), { label: T("Відкрити"), run: () => selectTab("watching") }); });
     }
     else if (act === "ep-done") {
       const f = films.find((x) => x.id === id); if (!f) return;
@@ -1081,7 +1120,7 @@
       animateOut([el.dataset.key2]).then(() => { recHidden.add(k); render(); });
       sb.from("rec_hidden").insert({ media_type: type, tmdb_id: tid }).then(({ error }) => {
         if (error && error.code !== "23505") { recHidden.delete(k); render(); toast(dbErr(error)); return; }
-        toast("Сховано з рекомендацій", { label: "Скасувати", run: async () => {
+        toast(T("Сховано з рекомендацій"), { label: T("Скасувати"), run: async () => {
           await sb.from("rec_hidden").delete().eq("media_type", type).eq("tmdb_id", tid);
           recHidden.delete(k); render();
         } });
@@ -1131,16 +1170,15 @@
   const pickPool = () => films.filter((f) => tabOf(f) === "agreed" && kindOK(f));
   function pickCardHTML(f) {
     const src = posterSrc(f.poster_path, "w342");
-    const tr = [f.trailer_ua ? trailerHTML(f, "ua", "Трейлер укр.") : "", f.trailer_en ? trailerHTML(f, "en", "Трейлер англ.") : ""].join("");
-    const second = f.name_ua && f.name_en && norm(f.name_ua) !== norm(f.name_en) ? f.name_en : "";
+    const tr = trailersHTML(f), second = otherTitle(f);
     return `<div class="pick-card">
       <div class="pick-poster">${src ? `<img src="${esc(src)}" alt="">` : `<span class="pg" style="--h:${hash(titleOf(f)) % 360}"><span class="pg-t">${esc(titleOf(f))}</span></span>`}</div>
       <div class="pick-info">
         <div class="badges">${kindHTML(f)}</div>
         <div class="pick-title">${esc(titleOf(f))}</div>
-        ${second ? `<div class="pick-en" lang="en">${esc(second)}</div>` : ""}
+        ${second ? `<div class="pick-en">${esc(second)}</div>` : ""}
         ${metaHTML(f)}${provHTML(f)}
-        ${f.desc_ua || f.desc_en ? `<p class="pick-desc"${f.desc_ua ? ' lang="uk"' : ' lang="en"'}>${esc(f.desc_ua || f.desc_en)}</p>` : ""}
+        ${f.desc_ua || f.desc_en ? `<p class="pick-desc">${esc((isEn() ? f.desc_en || f.desc_ua : f.desc_ua || f.desc_en))}</p>` : ""}
         ${tr ? `<div class="pick-trailers">${tr}</div>` : ""}
       </div>
     </div>`;
@@ -1148,10 +1186,10 @@
   let pickSeq = 0;
   function rollPick() {
     const pool = pickPool(), what = kind === "tv" ? "серіалів" : kind === "movie" ? "фільмів" : "назв";
-    $("#pickSub").textContent = pool.length ? `Випадково з ${pool.length} ${plural(pool.length, kind === "tv" ? ["погодженого серіалу", "погоджених серіалів", "погоджених серіалів"] : kind === "movie" ? ["погодженого фільму", "погоджених фільмів", "погоджених фільмів"] : ["погодженої назви", "погоджених назв", "погоджених назв"])}` : "";
+    $("#pickSub").textContent = pool.length ? T("Випадково з {n} {w}", { n: pool.length, w: plural(pool.length, kind === "tv" ? ["погодженого серіалу", "погоджених серіалів", "погоджених серіалів"] : kind === "movie" ? ["погодженого фільму", "погоджених фільмів", "погоджених фільмів"] : ["погодженої назви", "погоджених назв", "погоджених назв"]) }) : "";
     $("#pickAgain").hidden = pool.length < 2;
     if (!pool.length) {
-      $("#pickBody").innerHTML = `<div class="pick-empty"><b>У «Погоджених» немає ${what}</b>Проголосуйте обоє «Так» за кілька назв — і тут буде з чого вибрати.</div>`;
+      $("#pickBody").innerHTML = `<div class="pick-empty"><b>${T("У «Погоджених» немає {what}", { what: T(what) })}</b>${T("Проголосуйте обоє «Так» за кілька назв — і тут буде з чого вибрати.")}</div>`;
       return;
     }
     const others = pool.length > 1 ? pool.filter((f) => !pickLast || f.id !== pickLast) : pool;
@@ -1181,8 +1219,8 @@
   $("#picker").addEventListener("click", (e) => { if (e.target.id === "picker") closeOverlay("#picker"); });
 
   // ---------- stats ----------
-  const fmt1 = (x) => (Math.round(x * 10) / 10).toString().replace(".", ",");
-  const MONTHS = ["січ", "лют", "бер", "кві", "тра", "чер", "лип", "сер", "вер", "жов", "лис", "гру"];
+  const fmt1 = dec;
+  const monthName = (y, m) => new Date(y, m, 15).toLocaleDateString(LOCALE(), { month: "short" }).replace(".", "");
   function episodesSeen(f) { // rough count of episodes watched, for the hours estimate
     const seasons = (f.tv_info && f.tv_info.seasons) || [], la = f.tv_info && f.tv_info.last;
     const airedEps = (upTo) => seasons.filter((x) => x.s <= upTo).reduce((n, x) => n + (la && x.s === la.s ? la.e : x.e), 0);
@@ -1203,10 +1241,10 @@
     const waiting = films.filter((f) => !f.watched && ["proposed", "agreed", "watching"].includes(tabOf(f))).length;
     const tile = (n, label, sub) => `<div class="st-tile"><div class="st-n">${n}</div><div class="st-l">${label}</div>${sub ? `<div class="st-s">${sub}</div>` : ""}</div>`;
     let h = `<div class="st-tiles">
-      ${tile(watched.length, "Переглянуто", `${wMovies} ${plural(wMovies, FILMS)} · ${wTv} ${plural(wTv, ["серіал", "серіали", "серіалів"])}`)}
-      ${tile(thisYear, "Цього року", `у ${year}`)}
-      ${tile("≈ " + Math.round(minutes / 60), "Годин перед екраном", "фільми й переглянуті серії")}
-      ${tile(waiting, "Чекають перегляду", `усього у списку ${films.length}`)}
+      ${tile(watched.length, T("Переглянуто"), `${wMovies} ${plural(wMovies, FILMS)} · ${wTv} ${plural(wTv, ["серіал", "серіали", "серіалів"])}`)}
+      ${tile(thisYear, T("Цього року"), T("у {y}", { y: year }))}
+      ${tile("≈ " + Math.round(minutes / 60), T("Годин перед екраном"), T("фільми й переглянуті серії"))}
+      ${tile(waiting, T("Чекають перегляду"), T("усього у списку {n}", { n: films.length }))}
     </div>`;
 
     // ratings
@@ -1217,27 +1255,27 @@
     if (rated.length) {
       const close = both.filter((f) => Math.abs(f.aleks_rating - f.alina_rating) <= 1).length;
       const diff = both.length ? both.reduce((n, f) => n + Math.abs(f.aleks_rating - f.alina_rating), 0) / both.length : 0;
-      h += `<h3>Оцінки</h3><div class="st-tiles">
-        ${tile(ra ? fmt1(ra.a) : "—", "Середня в Алекса", ra ? `${ra.n} ${plural(ra.n, ["оцінка", "оцінки", "оцінок"])}` : "ще не оцінював")}
-        ${tile(rb ? fmt1(rb.a) : "—", "Середня в Аліни", rb ? `${rb.n} ${plural(rb.n, ["оцінка", "оцінки", "оцінок"])}` : "ще не оцінювала")}
-        ${both.length ? tile(Math.round((close / both.length) * 100) + "%", "Збіг смаків", `оцінки різняться не більше ніж на 1 · середня різниця ${fmt1(diff)}`) : ""}
+      h += `<h3>${T("Оцінки")}</h3><div class="st-tiles">
+        ${tile(ra ? fmt1(ra.a) : "—", T("Середня в Алекса"), ra ? `${ra.n} ${plural(ra.n, ["оцінка", "оцінки", "оцінок"])}` : T("ще не оцінював"))}
+        ${tile(rb ? fmt1(rb.a) : "—", T("Середня в Аліни"), rb ? `${rb.n} ${plural(rb.n, ["оцінка", "оцінки", "оцінок"])}` : T("ще не оцінювала"))}
+        ${both.length ? tile(Math.round((close / both.length) * 100) + "%", T("Збіг смаків"), T("оцінки різняться не більше ніж на 1 · середня різниця {d}", { d: fmt1(diff) })) : ""}
       </div>`;
       const best = rated.map((f) => ({ f, s: scoreOf(f) })).filter((x) => x.s >= 7).sort((a, b) => b.s - a.s).slice(0, 5);
-      h += `<div class="st-cols"><div><h4>Найкраще оцінене</h4>${best.length ? `<ol class="st-list">${best.map(({ f, s: sc }) =>
-        `<li><span class="st-t">${esc(titleOf(f))}</span><span class="st-v">${STAR}${fmt1(sc)}</span></li>`).join("")}</ol>` : `<p class="st-none">Поки нічого не отримало 7 і вище.</p>`}</div>`;
+      h += `<div class="st-cols"><div><h4>${T("Найкраще оцінене")}</h4>${best.length ? `<ol class="st-list">${best.map(({ f, s: sc }) =>
+        `<li><span class="st-t">${esc(titleOf(f))}</span><span class="st-v">${STAR}${fmt1(sc)}</span></li>`).join("")}</ol>` : `<p class="st-none">${T("Поки нічого не отримало 7 і вище.")}</p>`}</div>`;
       const fights = both.map((f) => ({ f, d: Math.abs(f.aleks_rating - f.alina_rating) })).filter((x) => x.d >= 2).sort((a, b) => b.d - a.d).slice(0, 5);
-      h += `<div><h4>Найбільше розійшлися</h4>${fights.length ? `<ol class="st-list">${fights.map(({ f }) =>
-        `<li><span class="st-t">${esc(titleOf(f))}</span><span class="st-v st-pair">Алекс <b>${f.aleks_rating}</b> · Аліна <b>${f.alina_rating}</b></span></li>`).join("")}</ol>`
-        : `<p class="st-none">Поки ви ні разу не розійшлися більше ніж на 1 бал.</p>`}</div></div>`;
+      h += `<div><h4>${T("Найбільше розійшлися")}</h4>${fights.length ? `<ol class="st-list">${fights.map(({ f }) =>
+        `<li><span class="st-t">${esc(titleOf(f))}</span><span class="st-v st-pair">${NAME.Aleks} <b>${f.aleks_rating}</b> · ${NAME.Alina} <b>${f.alina_rating}</b></span></li>`).join("")}</ol>`
+        : `<p class="st-none">${T("Поки ви ні разу не розійшлися більше ніж на 1 бал.")}</p>`}</div></div>`;
     }
 
     // genres among watched titles
     const g = new Map();
-    for (const f of watched) for (const x of (f.genres || []).map(genreUa)) g.set(x, (g.get(x) || 0) + 1);
+    for (const f of watched) for (const x of (f.genres || []).map(genreShow)) g.set(x, (g.get(x) || 0) + 1);
     const top = [...g.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
     if (top.length) {
       const max = top[0][1];
-      h += `<h3>Улюблені жанри</h3><div class="st-bars" role="list">${top.map(([name, n]) =>
+      h += `<h3>${T("Улюблені жанри")}</h3><div class="st-bars" role="list">${top.map(([name, n]) =>
         `<div class="st-bar" role="listitem" title="${esc(name)}: ${n}"><span class="st-bl">${esc(name)}</span><span class="st-track"><span style="width:${Math.max(4, (n / max) * 100)}%"></span></span><span class="st-bn">${n}</span></div>`).join("")}</div>`;
     }
 
@@ -1251,19 +1289,19 @@
     }
     const mMax = Math.max(1, ...months.map((x) => x.n));
     if (months.some((x) => x.n)) {
-      h += `<h3>Переглянуто по місяцях</h3><div class="st-months" role="list">${months.map((x) =>
-        `<div class="st-m" role="listitem" title="${MONTHS[x.m]} ${x.y}: ${x.n}" aria-label="${MONTHS[x.m]} ${x.y}: ${x.n}"><span class="st-mv">${x.n || ""}</span><span class="st-mb"><span style="height:${x.n ? Math.max(6, (x.n / mMax) * 100) : 0}%"></span></span><span class="st-ml">${MONTHS[x.m]}</span></div>`).join("")}</div>`;
+      h += `<h3>${T("Переглянуто по місяцях")}</h3><div class="st-months" role="list">${months.map((x) =>
+        `<div class="st-m" role="listitem" title="${monthName(x.y, x.m)} ${x.y}: ${x.n}" aria-label="${monthName(x.y, x.m)} ${x.y}: ${x.n}"><span class="st-mv">${x.n || ""}</span><span class="st-mb"><span style="height:${x.n ? Math.max(6, (x.n / mMax) * 100) : 0}%"></span></span><span class="st-ml">${monthName(x.y, x.m)}</span></div>`).join("")}</div>`;
     }
 
     // votes and who suggests more
     const votes = (col) => { const v = films.map((f) => f[col]).filter((x) => x === "yes" || x === "no"); return v.length ? { yes: v.filter((x) => x === "yes").length, n: v.length } : null; };
     const va = votes("aleks"), vb = votes("alina");
     const added = (who) => films.filter((f) => f.created_by === who).length;
-    h += `<h3>Голоси і пропозиції</h3><div class="st-tiles">
-      ${tile(va ? Math.round((va.yes / va.n) * 100) + "%" : "—", "Алекс каже «Так»", va ? `з ${va.n} ${plural(va.n, ["голосу", "голосів", "голосів"])}` : "")}
-      ${tile(vb ? Math.round((vb.yes / vb.n) * 100) + "%" : "—", "Аліна каже «Так»", vb ? `з ${vb.n} ${plural(vb.n, ["голосу", "голосів", "голосів"])}` : "")}
-      ${tile(added("Aleks"), "Додав Алекс", "назв у списку")}
-      ${tile(added("Alina"), "Додала Аліна", "назв у списку")}
+    h += `<h3>${T("Голоси і пропозиції")}</h3><div class="st-tiles">
+      ${tile(va ? Math.round((va.yes / va.n) * 100) + "%" : "—", T("Алекс каже «Так»"), va ? T("з {n} {w}", { n: va.n, w: plural(va.n, ["голосу", "голосів", "голосів"]) }) : "")}
+      ${tile(vb ? Math.round((vb.yes / vb.n) * 100) + "%" : "—", T("Аліна каже «Так»"), vb ? T("з {n} {w}", { n: vb.n, w: plural(vb.n, ["голосу", "голосів", "голосів"]) }) : "")}
+      ${tile(added("Aleks"), T("Додав Алекс"), T("назв у списку"))}
+      ${tile(added("Alina"), T("Додала Аліна"), T("назв у списку"))}
     </div>`;
     return h;
   }
@@ -1277,7 +1315,7 @@
     const id = ytId(url);
     if (!id) { if (/^https?:\/\//i.test(url)) window.open(url, "_blank", "noopener"); return; }
     $("#playerTitle").textContent = titleOf(f);
-    $("#playerSub").textContent = (which === "en" ? "Англійський трейлер" : "Український трейлер") + (f.year ? " · " + f.year : "");
+    $("#playerSub").textContent = T(which === "en" ? "Англійський трейлер" : "Український трейлер") + (f.year ? " · " + f.year : "");
     // Android: an intent link opens the YouTube app, falling back to the web page if the app isn't installed.
     // iPhone: the normal https link opens the app through universal links.
     const web = "https://www.youtube.com/watch?v=" + id;
@@ -1287,7 +1325,7 @@
       yt.removeAttribute("target");
     } else { yt.href = web; yt.target = "_blank"; }
     $("#playerFrame").style.backgroundImage = `url("https://i.ytimg.com/vi/${id}/hqdefault.jpg")`;
-    $("#playerFrame").innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0" title="Трейлер" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
+    $("#playerFrame").innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0" title="${T("Трейлер")}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
     openOverlay("#player");
   }
   function closePlayer() { $("#playerFrame").innerHTML = ""; $("#playerFrame").style.backgroundImage = ""; closeOverlay("#player"); }
@@ -1308,27 +1346,27 @@
   function fillForm(d) {
     $("#edEn").value = d.name_en || ""; $("#edUa").value = d.name_ua || "";
     $("#edYear").value = d.year || ""; $("#edRuntime").value = d.runtime || "";
-    $("#edGenres").value = Array.isArray(d.genres) ? d.genres.map(genreUa).join(", ") : "";
+    $("#edGenres").value = Array.isArray(d.genres) ? d.genres.map(genreShow).join(", ") : "";
     $("#edDescEn").value = d.desc_en || ""; $("#edDescUa").value = d.desc_ua || "";
     $("#edTrEn").value = d.trailer_en || ""; $("#edTrUa").value = d.trailer_ua || "";
     $("#edPoster").value = d.poster_path || "";
     edPreview();
   }
   const edSuggest = makeSuggest($("#edMatch"), $("#edSuggest"), async (r) => {
-    edMsg.classList.remove("ok"); edMsg.textContent = "Завантажуємо з TMDB…";
+    edMsg.classList.remove("ok"); edMsg.textContent = T("Завантажуємо з TMDB…");
     try {
       const d = await fetchDetails(r.type, r.id);
       const dup = films.find((f) => f.id !== edId && f.tmdb_id === d.tmdb_id && f.media_type === d.media_type);
-      if (dup) { edMsg.textContent = `«${titleOf(dup)}» уже є в списку.`; return; }
+      if (dup) { edMsg.textContent = T("«{t}» уже є в списку.", { t: titleOf(dup) }); return; }
       edMatch = d; fillForm(d); $("#edMatch").value = "";
-      edMsg.classList.add("ok"); edMsg.textContent = "Заповнено з TMDB. Натисніть «Зберегти», щоб залишити.";
+      edMsg.classList.add("ok"); edMsg.textContent = T("Заповнено з TMDB. Натисніть «Зберегти», щоб залишити.");
     } catch (e) { edMsg.textContent = tmdbMsg(e); }
   });
   function openEditor(id) {
     const f = films.find((x) => x.id === id); if (!f) return;
     edId = id; edMatch = null; delArmed = false;
-    $("#edDelete").textContent = "Видалити";
-    $("#edTitle").textContent = "Редагування · " + titleOf(f);
+    $("#edDelete").textContent = T("Видалити");
+    $("#edTitle").textContent = T("Редагування · {t}", { t: titleOf(f) });
     $("#edMatch").value = ""; edSuggest.clear();
     edMsg.textContent = ""; edMsg.classList.remove("ok");
     fillForm(f);
@@ -1343,7 +1381,7 @@
     const f = films.find((x) => x.id === edId); if (!f) { closeEditor(); return; }
     edMsg.classList.remove("ok");
     const trEn = $("#edTrEn").value.trim(), trUa = $("#edTrUa").value.trim();
-    for (const u of [trEn, trUa]) if (u && !/^https?:\/\//i.test(u)) { edMsg.textContent = "Трейлер має бути повним посиланням, що починається з https://"; return; }
+    for (const u of [trEn, trUa]) if (u && !/^https?:\/\//i.test(u)) { edMsg.textContent = T("Трейлер має бути повним посиланням, що починається з https://"); return; }
     const patch = {
       name_en: $("#edEn").value.trim(), name_ua: $("#edUa").value.trim(),
       year: num($("#edYear").value), runtime: num($("#edRuntime").value),
@@ -1352,10 +1390,10 @@
       trailer_en: trEn, trailer_ua: trUa,
       poster_path: $("#edPoster").value.trim(),
     };
-    if (!patch.name_en && !patch.name_ua) { edMsg.textContent = "Вкажіть хоча б одну назву."; return; }
+    if (!patch.name_en && !patch.name_ua) { edMsg.textContent = T("Вкажіть хоча б одну назву."); return; }
     if (edMatch) { patch.tmdb_id = edMatch.tmdb_id; patch.media_type = edMatch.media_type; patch.match_state = "done"; }
     const id = edId; closeEditor();
-    if (await patchFilm(id, patch)) toast("Збережено");
+    if (await patchFilm(id, patch)) toast(T("Збережено"));
   });
   $("#edDelete").addEventListener("click", async () => {
     const id = edId; closeEditor();
@@ -1400,7 +1438,7 @@
   });
   let installEvt = null;
   window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvt = e; $("#installBtn").hidden = false; });
-  window.addEventListener("appinstalled", () => { installEvt = null; $("#installBtn").hidden = true; toast("Застосунок встановлено"); });
+  window.addEventListener("appinstalled", () => { installEvt = null; $("#installBtn").hidden = true; toast(T("Застосунок встановлено")); });
   $("#installBtn").addEventListener("click", async () => {
     setMenu(false);
     if (!installEvt) return;
@@ -1414,7 +1452,7 @@
   async function currentSub() { const reg = await swReady; return reg ? reg.pushManager.getSubscription() : null; }
   async function saveSub(sub) {
     const j = sub.toJSON();
-    const { error } = await sb.from("push_subs").upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth });
+    const { error } = await sb.from("push_subs").upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, lang: LANG });
     return !error;
   }
   async function paintPush() {
@@ -1422,25 +1460,25 @@
     if (!pushOK()) { b.hidden = true; return; }
     b.hidden = false;
     const on = Notification.permission === "granted" && !!(await currentSub());
-    b.textContent = on ? "Сповіщення на телефоні: увімкнено ✓" : Notification.permission === "denied" ? "Сповіщення заблоковані в браузері" : "Увімкнути сповіщення на телефоні";
+    b.textContent = T(on ? "Сповіщення на телефоні: увімкнено ✓" : Notification.permission === "denied" ? "Сповіщення заблоковані в браузері" : "Увімкнути сповіщення на телефоні");
     b.dataset.on = on ? "1" : "";
   }
   async function enablePush() {
     if (!pushOK()) return;
     const perm = await Notification.requestPermission();
-    if (perm !== "granted") { toast("Сповіщення не дозволено. Їх можна ввімкнути в налаштуваннях сайту в браузері."); paintPush(); return; }
+    if (perm !== "granted") { toast(T("Сповіщення не дозволено. Їх можна ввімкнути в налаштуваннях сайту в браузері.")); paintPush(); return; }
     try {
       const reg = await swReady;
       let sub = await reg.pushManager.getSubscription();
       if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(CFG.vapidPublicKey) });
-      toast(await saveSub(sub) ? `Готово: сповіщення про зміни від ${NAME[partner()] === "Аліна" ? "Аліни" : "Алекса"} приходитимуть на цей пристрій` : "Не вдалося зберегти підписку. Спробуйте ще раз.");
-    } catch (e) { toast("Цей браузер не дав підписатися на сповіщення."); }
+      toast(await saveSub(sub) ? T("Готово: сповіщення про зміни від {who} приходитимуть на цей пристрій", { who: T(partner() === "Alina" ? "Аліни" : "Алекса") }) : T("Не вдалося зберегти підписку. Спробуйте ще раз."));
+    } catch (e) { toast(T("Цей браузер не дав підписатися на сповіщення.")); }
     paintPush();
   }
   async function disablePush() {
     const sub = await currentSub();
     if (sub) { await sb.from("push_subs").delete().eq("endpoint", sub.endpoint); try { await sub.unsubscribe(); } catch (e) {} }
-    toast("Сповіщення на цьому пристрої вимкнено");
+    toast(T("Сповіщення на цьому пристрої вимкнено"));
     paintPush();
   }
   $("#pushBtn").addEventListener("click", () => { setMenu(false); ($("#pushBtn").dataset.on ? disablePush : enablePush)(); });
@@ -1452,9 +1490,47 @@
     let asked = false; try { asked = !!localStorage.getItem("oc-push-asked"); } catch (e) {}
     if (Notification.permission === "default" && !asked) {
       try { localStorage.setItem("oc-push-asked", "1"); } catch (e) {}
-      setTimeout(() => toast(`Сповіщати на цьому пристрої, коли ${NAME[partner()]} щось додає, голосує чи оцінює?`, { label: "Увімкнути", run: enablePush }), 2500);
+      setTimeout(() => toast(T("Сповіщати на цьому пристрої, коли {who} щось додає, голосує чи оцінює?", { who: NAME[partner()] }), { label: T("Увімкнути"), run: enablePush }), 2500);
     }
   }
+
+  // ---------- language picker ----------
+  function setVoteHeaders() {
+    if (!me) return;
+    const [h1, h2] = document.querySelectorAll("thead .c-vote");
+    h1.className = `c-vote th-${myKey()}`; h1.textContent = T("Ви · {name}", { name: NAME[me] });
+    h2.className = `c-vote th-${theirKey()}`; h2.textContent = NAME[partner()];
+  }
+  function setLang(l, opts = {}) {
+    if (l !== "uk" && l !== "en") return;
+    const changed = l !== LANG;
+    LANG = l;
+    try { localStorage.setItem("oc-lang", l); } catch (e) {}
+    setNames(); applyStatic();
+    if (!changed) return;
+    // text the app draws itself
+    if (me) { $("#whoName").textContent = T("Ви увійшли як {name}", { name: NAME[me] }); setVoteHeaders(); }
+    document.querySelectorAll(".pwtoggle").forEach((b) => setPwVisible(b, b.getAttribute("aria-pressed") === "true"));
+    if (!$("#pwGate").hidden) {
+      $("#pwTitle").textContent = T(pwFirst ? "Створіть пароль" : "Змінити пароль");
+      $("#pwSub").textContent = T(pwFirst ? "Надалі ви входитимете з електронною поштою і цим паролем." : "Використовуйте його для наступного входу на будь-якому пристрої.");
+    }
+    tickLogin(); paintPush();
+    recs = { status: "idle", items: [], sig: "", at: 0 }; // recommendations come back in the new language
+    if (!$("#statsView").hidden) $("#statsBody").innerHTML = statsHTML();
+    if (!$("#picker").hidden) closeOverlay("#picker");
+    render(false);
+    if (loaded) ensureRecs();
+    // follow you to your other devices, and phone notifications switch language too
+    if (opts.save !== false && sb && me) {
+      try { sb.auth.updateUser({ data: { lang: l } }).catch(() => {}); } catch (e) {}
+      currentSub().then((sub) => { if (sub) saveSub(sub); }).catch(() => {});
+    }
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-lang]");
+    if (b) { e.preventDefault(); setLang(b.dataset.lang); }
+  });
 
   // ---------- sticky header gets a hairline shadow once the page scrolls ----------
   const appbar = $("#appbar");
@@ -1478,8 +1554,8 @@
   function showPwGate(first, email) {
     pwFirst = first;
     hideAll(); $("#pwGate").hidden = false;
-    $("#pwTitle").textContent = first ? "Створіть пароль" : "Змінити пароль";
-    $("#pwSub").textContent = first ? "Надалі ви входитимете з електронною поштою і цим паролем." : "Використовуйте його для наступного входу на будь-якому пристрої.";
+    $("#pwTitle").textContent = T(first ? "Створіть пароль" : "Змінити пароль");
+    $("#pwSub").textContent = T(first ? "Надалі ви входитимете з електронною поштою і цим паролем." : "Використовуйте його для наступного входу на будь-якому пристрої.");
     $("#pwUser").value = email || "";
     $("#pwNew").value = ""; $("#pwRepeat").value = "";
     $("#pwMsg").textContent = ""; $("#pwMsg").classList.remove("ok");
@@ -1493,7 +1569,7 @@
     const input = document.getElementById(btn.dataset.for); if (!input) return;
     input.type = show ? "text" : "password";
     btn.setAttribute("aria-pressed", String(show));
-    btn.setAttribute("aria-label", show ? "Сховати пароль" : "Показати пароль");
+    btn.setAttribute("aria-label", T(show ? "Сховати пароль" : "Показати пароль"));
   }
   const hideAllPw = () => document.querySelectorAll(".pwtoggle").forEach((b) => setPwVisible(b, false));
   document.querySelectorAll(".pwtoggle").forEach((b) => {
@@ -1524,11 +1600,11 @@
     const left = cooldownLeft();
     if (left > 0) {
       linkBtn.disabled = true;
-      linkBtn.textContent = `Надіслати посилання (знову через ${Math.ceil(left / 1000)} с)`;
+      linkBtn.textContent = T("Надіслати посилання (знову через {s} с)", { s: Math.ceil(left / 1000) });
       cooldownTimer = setTimeout(tickLogin, 1000);
       return;
     }
-    linkBtn.textContent = "Надіслати посилання на пошту";
+    linkBtn.textContent = T("Надіслати посилання на пошту");
     linkBtn.disabled = !sb || sending || !emailOk;
   }
   // The button only wakes up for a member email, compared by SHA-256 fingerprint so the
@@ -1556,9 +1632,9 @@
     const { error } = await sb.auth.signInWithPassword({ email, password: loginPassword.value });
     sending = false; tickLogin();
     if (error) {
-      if (error.status === 429) showGate("Забагато спроб. Зачекайте кілька хвилин і спробуйте ще раз.");
-      else if (error.status === 400) showGate("Неправильна пошта або пароль. Ще не створили пароль? Скористайтеся посиланням нижче.");
-      else showGate("Не вдалося увійти: " + error.message);
+      if (error.status === 429) showGate(T("Забагато спроб. Зачекайте кілька хвилин і спробуйте ще раз."));
+      else if (error.status === 400) showGate(T("Неправильна пошта або пароль. Ще не створили пароль? Скористайтеся посиланням нижче."));
+      else showGate(T("Не вдалося увійти: {m}", { m: error.message }));
       return;
     }
     loginPassword.value = ""; hideAllPw();
@@ -1571,33 +1647,33 @@
     const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
     sending = false;
     if (error) {
-      if (error.status === 429) { startCooldown(LINK_COOLDOWN_MS); showGate("Забагато листів. Зачекайте трохи і спробуйте ще раз."); }
-      else { tickLogin(); showGate("Не вдалося надіслати посилання: " + error.message); }
+      if (error.status === 429) { startCooldown(LINK_COOLDOWN_MS); showGate(T("Забагато листів. Зачекайте трохи і спробуйте ще раз.")); }
+      else { tickLogin(); showGate(T("Не вдалося надіслати посилання: {m}", { m: error.message })); }
       return;
     }
     startCooldown(LINK_COOLDOWN_MS);
-    showGate(`Посилання надіслано на ${email}. Відкрийте його і створіть пароль.`, true);
+    showGate(T("Посилання надіслано на {email}. Відкрийте його і створіть пароль.", { email }), true);
   });
 
   $("#pwForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const msg = $("#pwMsg"); msg.classList.remove("ok");
     const p1 = $("#pwNew").value, p2 = $("#pwRepeat").value;
-    if (p1.length < 10) { msg.textContent = "Пароль має містити щонайменше 10 символів."; return; }
-    if (p1 !== p2) { msg.textContent = "Паролі не збігаються."; return; }
+    if (p1.length < 10) { msg.textContent = T("Пароль має містити щонайменше 10 символів."); return; }
+    if (p1 !== p2) { msg.textContent = T("Паролі не збігаються."); return; }
     const btn = $("#pwSave"); btn.disabled = true;
     const { error } = await sb.auth.updateUser({ password: p1, data: { password_set: true } });
     btn.disabled = false;
     if (error) {
-      if (error.code === "same_password") msg.textContent = "Це ваш поточний пароль. Виберіть інший.";
-      else if (error.code === "weak_password") msg.textContent = "Пароль надто слабкий. Зробіть його довшим або менш поширеним.";
-      else if (error.code === "reauthentication_needed" || error.status === 401) msg.textContent = "З міркувань безпеки вийдіть і змініть пароль через посилання на пошту.";
-      else msg.textContent = "Не вдалося зберегти пароль: " + error.message;
+      if (error.code === "same_password") msg.textContent = T("Це ваш поточний пароль. Виберіть інший.");
+      else if (error.code === "weak_password") msg.textContent = T("Пароль надто слабкий. Зробіть його довшим або менш поширеним.");
+      else if (error.code === "reauthentication_needed" || error.status === 401) msg.textContent = T("З міркувань безпеки вийдіть і змініть пароль через посилання на пошту.");
+      else msg.textContent = T("Не вдалося зберегти пароль: {m}", { m: error.message });
       return;
     }
     $("#pwNew").value = ""; $("#pwRepeat").value = "";
     const { data } = await sb.auth.getSession();
-    toast("Пароль збережено");
+    toast(T("Пароль збережено"));
     if (pwFirst) onSession(data.session); else showApp();
   });
   $("#pwCancel").addEventListener("click", () => showApp());
@@ -1614,16 +1690,15 @@
     const { data: name, error } = await sb.rpc("member_name");
     if (error || !name) {
       await sb.auth.signOut();
-      showGate(error ? "Не вдалося перевірити доступ. Спробуйте ще раз." : "Цей обліковий запис не має доступу до списку.");
+      showGate(T(error ? "Не вдалося перевірити доступ. Спробуйте ще раз." : "Цей обліковий запис не має доступу до списку."));
       return;
     }
     me = name;
-    $("#whoName").textContent = "Ви увійшли як " + (NAME[me] || me);
+    { const ml = (session.user.user_metadata || {}).lang; if ((ml === "uk" || ml === "en") && ml !== LANG) setLang(ml, { save: false }); }
+    $("#whoName").textContent = T("Ви увійшли як {name}", { name: NAME[me] || me });
     const av = $("#acctBtn"); av.classList.toggle("is-alina", me === "Alina"); av.classList.toggle("is-aleks", me !== "Alina");
     $("#avatarLetter").textContent = (NAME[me] || me || "?").charAt(0);
-    const [h1, h2] = document.querySelectorAll("thead .c-vote");
-    h1.className = `c-vote th-${myKey()}`; h1.textContent = "Ви · " + NAME[me];
-    h2.className = `c-vote th-${theirKey()}`; h2.textContent = NAME[partner()];
+    setVoteHeaders();
     const meta = session.user.user_metadata || {};
     if (!meta.password_set) { showPwGate(true, session.user.email); return; }
     showApp();
@@ -1642,8 +1717,9 @@
   }
 
   function boot() {
+    setNames(); applyStatic();
     if (!window.supabase || !CFG.supabaseUrl || !CFG.supabaseAnonKey || CFG.supabaseAnonKey.startsWith("PASTE")) {
-      showGate("Сайт ще не під’єднаний до бази даних.");
+      showGate(T("Сайт ще не під’єднаний до бази даних."));
       $("#loginBtn").disabled = true;
       return;
     }
@@ -1659,7 +1735,7 @@
       seen = true;
       setTimeout(() => onSession(session), 0);
     });
-    if (hashErr) setTimeout(() => showGate(/expired|invalid/i.test(hashErr) ? "Посилання застаріло. Надішліть нове." : "Помилка входу: " + hashErr), 50);
+    if (hashErr) setTimeout(() => showGate(/expired|invalid/i.test(hashErr) ? T("Посилання застаріло. Надішліть нове.") : T("Помилка входу: {m}", { m: hashErr })), 50);
     setTimeout(async () => { if (!seen) { const { data } = await sb.auth.getSession(); onSession(data.session); } }, 1500);
   }
   boot();

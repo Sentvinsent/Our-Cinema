@@ -80,3 +80,6 @@ end;
 $$;
 create or replace trigger films_own_vote before update on public.films
   for each row execute function public.films_own_vote();
+
+-- ---------- phone notifications follow each device's chosen language ----------
+alter table public.push_subs add column if not exists lang text not null default 'uk' check (lang in ('uk', 'en'));

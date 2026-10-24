@@ -737,3 +737,13 @@ th.c-sel { padding-top: 10px; }
 .c-vote .vote-ro { min-height: 32px; }
 .c-vote .vote-ro.none { white-space: normal; text-align: center; line-height: 1.2; }
 .card-votes .vote.mine .vote-name { color: var(--accent); }
+
+/* ===== Language picker ===== */
+.gate-card { position: relative; }
+.gate-lang { position: absolute; top: 14px; right: 14px; display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 9px; background: rgba(255, 255, 255, .03); }
+.gate-lang button, .menu-lang button { appearance: none; border: 0; background: transparent; color: var(--muted); font: inherit; cursor: pointer; border-radius: 7px; }
+.gate-lang button { padding: 4px 9px; font-family: var(--f-mono); font-size: 11px; letter-spacing: .06em; }
+.gate-lang button[aria-pressed="true"], .menu-lang button[aria-pressed="true"] { background: rgba(255, 255, 255, .10); color: var(--ink); }
+.menu-lang { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; margin: 2px 4px 6px; border: 1px solid var(--line); border-radius: 10px; }
+.menu-lang button { padding: 8px 6px; font-size: 14px; font-weight: 500; }
+.menu-lang button[aria-pressed="true"] { color: var(--accent); }

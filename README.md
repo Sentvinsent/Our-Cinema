@@ -27,6 +27,9 @@ A private, shared watchlist for Aleks and Alina.
 - **Notifications:** a short message on the site when the other person adds, votes, rates or deletes something, a
   «Нове» badge on titles they added since your last visit, and optional phone notifications (account menu).
 - **Installable:** add it to the home screen to open it like an app.
+- **Languages:** Ukrainian or English (switch in the account menu or on the sign-in screen). The choice is saved on the
+  device and in your account, and also sets which title/description/trailer comes first, the language of
+  recommendations and of phone notifications. English text lives in `i18n.js`, keyed by the Ukrainian original.
 - Shows 10 items at a time with a "show more" button; filter by films or series.
 - Table on desktop, cards on phones; dark glass theme in black, graphite and aquamarine (`glass.css`); short animations (off when the device asks for reduced motion).
 
