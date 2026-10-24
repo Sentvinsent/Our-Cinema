@@ -323,7 +323,7 @@
       return `<div class="vote ${who}">${showName ? `<span class="vote-name">${Who}</span>` : ""}`
         + `<div class="vote-ro ${v || "none"}" aria-label="${Who}: ${txt}">${v ? (v === "yes" ? CHECK : CROSS) : ""}<span>${txt}</span></div></div>`;
     }
-    return `<div class="vote ${who} mine" role="group" aria-label="${T("Хочете подивитись?")}">${showName ? `<span class="vote-name">${T("Хочете подивитись?")}</span>` : ""}`
+    return `<div class="vote ${who} mine" role="group" aria-label="${T("Хочеш подивитися?")}">${showName ? `<span class="vote-name">${T("Хочеш подивитися?")}</span>` : ""}`
       + `<div class="seg"><button class="vb yes${v === "yes" ? " on" : ""}" data-act="vote" data-id="${f.id}" data-who="${who}" data-val="yes" aria-pressed="${v === "yes"}">${T("Так")}</button>`
       + `<button class="vb no${v === "no" ? " on" : ""}" data-act="vote" data-id="${f.id}" data-who="${who}" data-val="no" aria-pressed="${v === "no"}">${T("Ні")}</button></div></div>`;
   }
