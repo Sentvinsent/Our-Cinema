@@ -55,7 +55,7 @@ window.OC_EN = {
   " хв/серія": " min/ep", " хв": " min",
   "Заповнюємо з TMDB…": "Filling in from TMDB…",
   "Не знайдено на TMDB.": "Not found on TMDB.", "Знайти": "Find",
-  "Так": "Yes", "Ні": "No", "Ваш голос": "Your vote",
+  "Так": "Yes", "Ні": "No", "Ваш голос": "Your vote", "Хочете подивитись?": "Want to watch it?",
   "{name} хоче": "{name} wants it",
   "Чекає на ваш голос": "Waiting for your vote", "Чекає на Аліну": "Waiting for Alina", "Чекає на Алекса": "Waiting for Aleks",
   "Збіг! {t} → «Погоджені»": "It’s a match! {t} → Agreed",
