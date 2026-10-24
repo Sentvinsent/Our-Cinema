@@ -15,6 +15,16 @@ A private, shared watchlist for Aleks and Alina.
 - Once a title is marked Watched, the Yes/No votes turn into 1–10 star ratings for Aleks and Alina
   (one row of ten stars each; tap the same star again to clear it); the average shows as a ★ badge next to the title.
 - Changes show up live on the other person's device.
+- **Where to watch:** each unwatched title shows tags for the streaming services that carry it in Poland
+  (TMDB data, refreshed in the background: series daily, films every few days).
+- **Що дивимось?** — the dice button picks a random title from Погоджені, following the Усі / Фільми / Серіали filter.
+- **Series tracking:** «Почали дивитись» moves a series to the Дивимось tab, where you pick the season and episode and
+  tap «Переглянули серію» to move on. Badges show upcoming and newly released seasons.
+- **Рекомендовані:** suggestions from TMDB based on titles you rated 7+ or both agreed on; add them in one tap or hide them.
+- **Статистика** (account menu): totals, hours, average ratings, how often you agree, top genres, titles per month.
+- **Notifications:** a short message on the site when the other person adds, votes, rates or deletes something, a
+  «Нове» badge on titles they added since your last visit, and optional phone notifications (account menu).
+- **Installable:** add it to the home screen to open it like an app.
 - Shows 10 items at a time with a "show more" button; filter by films or series.
 - Table on desktop, cards on phones; dark glass theme in black, graphite and aquamarine (`glass.css`); short animations (off when the device asks for reduced motion).
 
@@ -34,6 +44,10 @@ A private, shared watchlist for Aleks and Alina.
 2. In Supabase → Authentication → URL Configuration, set the Site URL to the GitHub Pages address.
 3. Put the project URL and anon key in `config.js`.
 4. Enable GitHub Pages for this repository (branch `main`, root folder).
+5. Run `supabase/features.sql`, then `supabase/notifications.sql`. For phone notifications, deploy
+   `supabase/functions/notify` (JWT verification off — it checks its own secret), add `hook_secret`, `vapid_public`
+   and `vapid_private` rows to `app_secrets`, and put the public key in `config.js` as `vapidPublicKey`.
+6. `.github/workflows/keepalive.yml` pings the database daily so the free Supabase project never pauses.
 
 ## Samsung Internet
 The page declares its own dark theme (`color-scheme: light dark` plus a `prefers-color-scheme: dark` rule), which is how
@@ -55,3 +69,5 @@ This product uses the TMDB API but is not endorsed or certified by TMDB.
   after each send. Passwords must be at least 10 characters.
 - The page sends a Content Security Policy, and the Supabase library is pinned with an integrity hash.
 - No secrets are in this repository. The anon key in `config.js` is public by design.
+- Phone notifications: each browser's subscription is readable only by its owner; the database signs its calls to the
+  `notify` function with a secret, and the signing keys stay in `app_secrets`.

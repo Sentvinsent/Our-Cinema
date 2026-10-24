@@ -46,7 +46,8 @@ begin
   if not public.is_member() then
     raise exception 'not allowed' using errcode = '42501';
   end if;
-  if path !~ '^/(search/multi|movie/[0-9]+|tv/[0-9]+)$' then
+  -- search, details, and recommendations only
+  if path !~ '^/(search/multi|(movie|tv)/[0-9]+(/recommendations)?)$' then
     raise exception 'path not allowed' using errcode = '22023';
   end if;
 

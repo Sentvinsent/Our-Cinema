@@ -12,11 +12,17 @@
   <meta name="theme-color" content="#08090A">
   <style>html{background:#08090A}</style>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2308090A'/%3E%3Cpath d='M12 9v14l11-7z' fill='%235CE5C8'/%3E%3C/svg%3E">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Наше кіно">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Unbounded:wght@500;700&display=swap">
-  <link rel="stylesheet" href="styles.css?v=202610240150">
-  <link rel="stylesheet" href="glass.css?v=202610240150">
+  <link rel="stylesheet" href="styles.css?v=202610240430">
+  <link rel="stylesheet" href="glass.css?v=202610240430">
 </head>
 <body>
 
@@ -64,6 +70,9 @@
         <div class="menu" id="acctMenu" role="menu" hidden>
           <div class="menu-who" id="whoName"></div>
           <div class="menu-stats" id="stats"></div>
+          <button type="button" role="menuitem" id="statsBtn">Статистика</button>
+          <button type="button" role="menuitem" id="pushBtn" hidden>Сповіщення на телефоні</button>
+          <button type="button" role="menuitem" id="installBtn" hidden>Встановити як застосунок</button>
           <button type="button" role="menuitem" id="changePwBtn">Змінити пароль</button>
           <button type="button" role="menuitem" id="logoutBtn">Вийти</button>
         </div>
@@ -87,6 +96,7 @@
       <button type="button" data-kind="movie" aria-pressed="false">Фільми</button>
       <button type="button" data-kind="tv" aria-pressed="false">Серіали</button>
     </div>
+    <button type="button" class="iconbtn pickbtn" id="pickBtn" aria-label="Що дивимось? Випадковий вибір із погоджених" title="Випадковий вибір із погоджених"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h14V5H5zm2.5 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm9 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zM12 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm-4.5 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm9 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg><span>Що дивимось?</span></button>
     <div class="searchbox" id="searchBox">
       <button type="button" class="iconbtn sq search-open" id="searchOpen" aria-label="Пошук за назвою" aria-expanded="false" aria-controls="search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3a7 7 0 0 1 5.6 11.2l4.6 4.6-1.4 1.4-4.6-4.6A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg></button>
       <input type="search" class="search" id="search" placeholder="Пошук за назвою" aria-label="Пошук за назвою">
@@ -166,6 +176,28 @@
   </form>
 </div>
 
+<!-- Stats -->
+<div class="overlay" id="statsView" hidden>
+  <div class="sheet stats-sheet" role="dialog" aria-modal="true" aria-labelledby="statsH">
+    <div class="stats-head"><h2 id="statsH">Статистика</h2><button class="iconbtn sq" type="button" id="statsClose" aria-label="Закрити"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6 10.6 12 5 6.4z"/></svg></button></div>
+    <div id="statsBody"></div>
+  </div>
+</div>
+
+<!-- Random pick -->
+<div class="overlay picker" id="picker" hidden>
+  <div class="pick-box" role="dialog" aria-modal="true" aria-labelledby="pickH">
+    <div class="pick-head">
+      <div><div class="pick-h" id="pickH">Що дивимось?</div><div class="pick-sub" id="pickSub"></div></div>
+      <button class="iconbtn sq" type="button" id="pickClose" aria-label="Закрити"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6 10.6 12 5 6.4z"/></svg></button>
+    </div>
+    <div class="pick-body" id="pickBody" aria-live="polite"></div>
+    <div class="pick-actions">
+      <button class="btn" type="button" id="pickAgain"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h14V5H5zm2.5 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm9 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zM12 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm-4.5 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm9 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>Інший варіант</button>
+    </div>
+  </div>
+</div>
+
 <!-- Trailer player -->
 <div class="overlay player" id="player" hidden>
   <div class="player-box" role="dialog" aria-modal="true" aria-labelledby="playerTitle">
@@ -187,7 +219,7 @@
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
-<script src="config.js?v=202610240150"></script>
-<script src="app.js?v=202610240150"></script>
+<script src="config.js?v=202610240430"></script>
+<script src="app.js?v=202610240430"></script>
 </body>
 </html>
