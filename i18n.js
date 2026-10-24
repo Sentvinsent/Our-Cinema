@@ -192,6 +192,7 @@ window.OC_EN = {
   "Завантажуємо список…": "Loading the list…", "Показати ще": "Show more",
   "Дані та зображення фільмів — TMDB.": "Film data and images — TMDB.",
   "Зняти вибір": "Clear selection",
+  "Нагору": "Back to top",
 
   // account menu, install, notifications
   "Обліковий запис": "Account", "Ви увійшли як {name}": "Signed in as {name}",

@@ -1565,7 +1565,18 @@
 
   // ---------- sticky header gets a hairline shadow once the page scrolls ----------
   const appbar = $("#appbar");
-  const onScroll = () => appbar.classList.toggle("stuck", window.scrollY > 8);
+  // …and a back-to-top button slides in once you've scrolled about a screen down
+  const toTop = $("#toTop");
+  const onScroll = () => {
+    appbar.classList.toggle("stuck", window.scrollY > 8);
+    const show = window.scrollY > Math.max(500, window.innerHeight * 0.8);
+    if (show !== document.body.classList.contains("show-top")) {
+      document.body.classList.toggle("show-top", show);
+      toTop.tabIndex = show ? 0 : -1;
+      toTop.setAttribute("aria-hidden", String(!show));
+    }
+  };
+  toTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: motionOK() ? "smooth" : "auto" }));
   window.addEventListener("scroll", onScroll, { passive: true }); onScroll();
 
   // ---------- auth ----------
