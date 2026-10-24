@@ -379,7 +379,7 @@
         : `<span role="listitem" class="pm-l" title="${esc(x.n)}">${esc(x.n.charAt(0))}</span>`).join("")}`
         + (more > 0 ? `<span class="pm-more" title="${esc(subs.slice(4).map((x) => x.n).join(", "))}">+${more}</span>` : "") + `</span>`;
     }
-    const top = subs.slice(0, mode === "icons" ? 5 : 4), more = subs.length - top.length;
+    const top = mode === "icons" ? subs.slice(0, 5) : subs, more = subs.length - top.length; // the full row lists every service
     const logo = (x) => (x.l ? `<img src="${esc(IMG + "w45" + x.l)}" alt="" loading="lazy">` : `<span class="plogo">${esc(x.n.charAt(0))}</span>`);
     const chip = (x) => mode === "icons"
       ? `<span class="ptag icon" role="listitem" title="${esc(x.n)}" aria-label="${esc(x.n)}">${logo(x)}</span>`
