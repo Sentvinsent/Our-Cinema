@@ -219,8 +219,6 @@ tbody tr:last-child td { border-bottom: 0; }
 .bulk .btn { padding-block: 7px; }
 .bulk .btn.armed { background: var(--no); border-color: var(--no); color: #fff; }
 input.sel, #selAll { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); cursor: pointer; }
-.c-sel { width: 40px; }
-td.c-sel { padding-top: 16px; }
 tbody tr.is-sel td { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
 .row-tools { display: flex; gap: 6px; }
 .iconbtn.del { display: inline-flex; align-items: center; justify-content: center; padding: 6px 8px; color: var(--muted); }
@@ -229,8 +227,6 @@ tbody tr.is-sel td { background: color-mix(in srgb, var(--accent) 9%, var(--surf
 .c-edit { width: 104px; }
 .card { position: relative; }
 .card.is-sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
-.card-sel { position: absolute; top: 8px; right: 8px; padding: 6px; display: inline-flex; cursor: pointer; }
-.card-head { padding-right: 30px; }
 .toast { display: flex; align-items: center; gap: 14px; }
 .toast-btn { appearance: none; background: none; border: 0; padding: 0; color: var(--accent); font-weight: 600; cursor: pointer; font-size: 14px; }
 
@@ -248,7 +244,6 @@ tbody tr.is-sel td { background: color-mix(in srgb, var(--accent) 9%, var(--surf
 .sub { overflow-wrap: anywhere; }
 /* Visually hidden helper field must not take layout width (inputs have width:100% elsewhere). */
 .sr, input.sr { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; border: 0 !important; margin: -1px !important; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.card-sel { z-index: 1; }
 
 @media (max-width: 700px) {
   /* 16px stops iOS Safari zooming in when a field is focused */
@@ -287,7 +282,6 @@ tbody tr.is-sel td { background: color-mix(in srgb, var(--accent) 9%, var(--surf
   th, td { padding: 10px 8px; }
   th:first-child, td:first-child { padding-left: 14px; }
   th:last-child, td:last-child { padding-right: 14px; }
-  .c-sel { width: 28px; }
   .c-poster { width: 64px; }
   .c-name { width: 124px; }
   .c-desc { width: auto; min-width: 160px; }
@@ -464,7 +458,6 @@ tbody tr.is-sel td { background: color-mix(in srgb, var(--accent) 9%, var(--surf
 .bulk .btn { padding: 9px 14px; }
 body.has-bulk .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
 body.has-bulk #app.wrap { padding-bottom: 100px; }
-th.c-sel { padding-top: 10px; }
 /* clearer selected filter chip in both themes */
 .kindf button[aria-pressed="true"] { background: var(--line); color: var(--ink); font-weight: 600; box-shadow: none; }
 @media (min-width: 701px) { .add { max-width: 640px; } }

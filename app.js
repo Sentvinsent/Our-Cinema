@@ -86,7 +86,6 @@
   let tab = "proposed", query = "", me = "";
   const expanded = new Set();
   const busy = new Set();
-  const selected = new Set();
   let visibleIds = [];
   const PAGE = 10;
   let shown = PAGE, kind = "all";
@@ -467,16 +466,11 @@
       : `<button class="iconbtn" data-act="edit" data-id="${f.id}">${T("Змінити")}</button>`;
   }
   const TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg>';
-  function selHTML(f, prefix) {
-    const on = selected.has(f.id);
-    return `<input type="checkbox" class="sel" id="${prefix}-s-${f.id}" data-act="select" data-id="${f.id}" ${on ? "checked" : ""} aria-label="${T("Вибрати: {t}", { t: esc(titleOf(f)) })}">`;
-  }
   function delBtnHTML(f) {
     return `<button class="iconbtn sq del" data-act="delete" data-id="${f.id}" aria-label="${T("Видалити: {t}", { t: esc(titleOf(f)) })}" title="${T("Видалити")}">${TRASH}</button>`;
   }
   function rowHTML(f) {
-    return `<tr data-key="${f.id}"${selected.has(f.id) ? ' class="is-sel"' : ""}>
-      <td class="c-sel">${selHTML(f, "t")}</td>
+    return `<tr data-key="${f.id}">
       <td class="c-poster">${posterHTML(f)}</td>
       <td class="c-name"><div class="badges">${kindHTML(f)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}</div><div class="title-en">${f.name_en ? esc(f.name_en) : '<span class="dim">—</span>'}</div>${metaHTML(f)}${fillHTML(f)}</td>
       <td class="c-name"><div class="title-ua" lang="uk">${f.name_ua ? esc(f.name_ua) : '<span class="dim">—</span>'}</div>${provHTML(f, "icons")}${startHTML(f)}</td>
@@ -498,8 +492,7 @@
   function cardHTML(f) {
     const tr = trailersHTML(f);
     const main = titleOf(f), second = otherTitle(f);
-    return `<article data-key="${f.id}" class="card${selected.has(f.id) ? " is-sel" : ""}${f.media_type === "tv" ? " is-tv" : ""}">
-      <label class="card-sel">${selHTML(f, "c")}</label>
+    return `<article data-key="${f.id}" class="card${f.media_type === "tv" ? " is-tv" : ""}">
       <div class="card-poster">${posterHTML(f)}</div>
       <div class="card-head">
         <div class="badges">${kindHTML(f)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}${wantHTML(f)}</div>
@@ -607,8 +600,6 @@
 
     const page = list.slice(0, shown);
     visibleIds = page.map((f) => f.id);
-    for (const id of [...selected]) if (!visibleIds.includes(id)) selected.delete(id);
-    renderBulk();
 
     const left = list.length - page.length, more = $("#more");
     more.hidden = left <= 0;
@@ -749,7 +740,7 @@
   }
   function renderRecs(before) {
     const empty = $("#empty"), more = $("#more");
-    visibleIds = []; selected.clear(); renderBulk();
+    visibleIds = [];
     $("#tableWrap").hidden = true;
     const show = (h, t, spin) => {
       empty.innerHTML = `<b>${spin ? '<span class="spin"></span>' : ""}${esc(T(h))}</b>${esc(T(t))}`;
@@ -780,35 +771,7 @@
   }
   function resetPage() { shown = PAGE; }
 
-  // ---------- selection & delete (Gmail-style) ----------
-  let bulkArmed = false;
-  // Selection bar lives at the bottom of the screen and only appears while something is ticked.
-  function renderBulk() {
-    const n = selected.size, total = visibleIds.length;
-    for (const all of [$("#selAll"), $("#selAllHead")]) {
-      all.checked = n > 0 && n === total;
-      all.indeterminate = n > 0 && n < total;
-      all.disabled = total === 0;
-    }
-    if (!n) bulkArmed = false;
-    $("#bulkCount").textContent = T("Вибрано: {n}", { n });
-    $("#bulkDelete").textContent = T(bulkArmed ? "Точно видалити?" : "Видалити");
-    $("#bulkDelete").classList.toggle("armed", bulkArmed);
-    const bar = $("#bulk"), show = n > 0 && !$("#app").hidden;
-    document.body.classList.toggle("has-bulk", show);
-    if (show && bar.hidden) {
-      bar.hidden = false;
-      if (motionOK()) bar.animate([{ transform: "translate(-50%, 120%)" }, { transform: "translate(-50%, 0)" }], { duration: 220, easing: EASE });
-    } else if (!show && !bar.hidden) {
-      if (motionOK()) bar.animate([{ transform: "translate(-50%, 0)" }, { transform: "translate(-50%, 120%)" }], { duration: 160, easing: "ease-in" }).finished.then(() => { if (!selected.size) bar.hidden = true; }, () => {});
-      else bar.hidden = true;
-    }
-  }
-  function toggleSelect(id, on) {
-    if (on) selected.add(id); else selected.delete(id);
-    bulkArmed = false;
-    render();
-  }
+  // ---------- delete (with undo) ----------
   async function deleteFilms(ids) {
     ids = ids.filter((id) => films.some((f) => f.id === id));
     if (!ids.length) return;
@@ -816,8 +779,6 @@
     ids.forEach((id) => myDeletes.add(id));
     await animateOut(ids);
     films = films.filter((f) => !ids.includes(f.id));
-    ids.forEach((id) => selected.delete(id));
-    bulkArmed = false;
     render();
     const { error } = await sb.from("films").delete().in("id", ids);
     if (error) { films = films.concat(removed); render(); toast(dbErr(error)); return; }
@@ -831,15 +792,6 @@
     render();
     toast(rows.length === 1 ? T("Відновлено") : T("Відновлено {n} {w}", { n: rows.length, w: plural(rows.length, FILMS) }));
   }
-  for (const id of ["#selAll", "#selAllHead"]) $(id).addEventListener("change", (e) => {
-    if (e.target.checked) visibleIds.forEach((x) => selected.add(x)); else selected.clear();
-    bulkArmed = false; render();
-  });
-  $("#bulkClear").addEventListener("click", () => { selected.clear(); bulkArmed = false; render(); });
-  $("#bulkDelete").addEventListener("click", () => {
-    if (!bulkArmed) { bulkArmed = true; renderBulk(); return; }
-    deleteFilms([...selected]);
-  });
 
   // ---------- data ----------
   async function loadFilms() {
@@ -1067,7 +1019,7 @@
   // ---------- interactions ----------
   function selectTab(k) {
     k = tabFromKey(k) || k;
-    if (k !== tab) { selected.clear(); bulkArmed = false; resetPage(); }
+    if (k !== tab) resetPage();
     tab = k;
     if (!$("#listSheet").hidden) closeOverlay("#listSheet");
     try { localStorage.setItem("oc-tab", k); } catch (e) {}
@@ -1083,21 +1035,21 @@
     const b = e.target.closest("[data-decl]"); if (!b || b.dataset.decl === decl) return;
     decl = b.dataset.decl;
     try { localStorage.setItem("oc-decl", decl); } catch (err) {}
-    selected.clear(); bulkArmed = false; resetPage(); render();
+    resetPage(); render();
   });
   $("#search").addEventListener("input", (e) => { query = e.target.value; resetPage(); render(); });
   $("#kindFilter").addEventListener("click", (e) => {
     const b = e.target.closest("[data-kind]"); if (!b || b.dataset.kind === kind) return;
     kind = b.dataset.kind;
     try { localStorage.setItem("oc-kind", kind); } catch (err) {}
-    selected.clear(); bulkArmed = false; resetPage(); render();
+    resetPage(); render();
   });
   $("#moreBtn").addEventListener("click", () => {
     const firstNew = shown;
     shown += PAGE; render();
     // move keyboard focus to the first newly shown item for screen-reader and keyboard users
     const el = document.querySelectorAll(window.innerWidth > 900 ? "#rows tr[data-key]" : "#cards .card")[firstNew];
-    const target = el && el.querySelector("input.sel");
+    const target = el && el.querySelector("button, input, select, a[href]");
     if (target) target.focus({ preventScroll: true });
   });
 
@@ -1166,7 +1118,6 @@
   });
   document.addEventListener("change", (e) => {
     const el = e.target;
-    if (el.dataset && el.dataset.act === "select") { toggleSelect(el.dataset.id, el.checked); return; }
     if (el.dataset && el.dataset.act === "watched") {
       const f = films.find((x) => x.id === el.dataset.id); if (!f) return;
       patchFilm(f.id, watchedPatch(f, el.checked));
@@ -1178,7 +1129,7 @@
   });
   document.addEventListener("keydown", (e) => {
     if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('[data-act="desc"]')) { e.preventDefault(); e.target.click(); }
-    if (e.key === "Escape") { if (!$("#listSheet").hidden) closeOverlay("#listSheet"); else if (!$("#player").hidden) closePlayer(); else if (!$("#picker").hidden) closeOverlay("#picker"); else if (!$("#statsView").hidden) closeOverlay("#statsView"); else if (!$("#editor").hidden) closeEditor(); else if (selected.size) { selected.clear(); bulkArmed = false; render(); } }
+    if (e.key === "Escape") { if (!$("#listSheet").hidden) closeOverlay("#listSheet"); else if (!$("#player").hidden) closePlayer(); else if (!$("#picker").hidden) closeOverlay("#picker"); else if (!$("#statsView").hidden) closeOverlay("#statsView"); else if (!$("#editor").hidden) closeEditor(); }
   });
 
   function openOverlay(sel) {
