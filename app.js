@@ -421,6 +421,9 @@
   let seenAt = 0; // titles your partner added after this moment get a "Нове" badge
   const isNew = (f) => seenAt > 0 && f.created_by && me && f.created_by !== me && Date.parse(f.created_at) > seenAt;
   const newHTML = (f) => (isNew(f) ? `<span class="nbadge">${T("Нове")}</span>` : "");
+  const HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21 10.6 19.7C5.4 15 2 11.9 2 8.1 2 5 4.4 2.6 7.5 2.6c1.7 0 3.4.8 4.5 2.1 1.1-1.3 2.8-2.1 4.5-2.1C19.6 2.6 22 5 22 8.1c0 3.8-3.4 6.9-8.6 11.6L12 21z"/></svg>';
+  const partnerWants = (f) => !f.watched && f[theirKey()] === "yes" && !f[myKey()];
+  const wantHTML = (f) => (partnerWants(f) ? `<span class="wbadge">${HEART}${T("{name} хоче", { name: NAME[partner()] })}</span>` : "");
   function startHTML(f) {
     if (f.media_type !== "tv") return "";
     if (f.watched) {
@@ -482,7 +485,7 @@
       <td class="c-tr">${trailerHTML(f, "en", T("Англ."))}</td>
       <td class="c-tr">${trailerHTML(f, "ua", T("Укр."))}</td>
       <td class="c-vote">${rateOrVote(f, myKey(), false)}</td>
-      <td class="c-vote">${rateOrVote(f, theirKey(), false)}</td>
+      <td class="c-vote">${f.watched ? rateOrVote(f, theirKey(), false) : wantHTML(f) || '<span class="dim">—</span>'}</td>
       <td class="c-watch">${watchHTML(f, "t")}</td>
       <td class="c-edit"><div class="row-tools">${editBtnHTML(f, true)}${delBtnHTML(f)}</div></td>
     </tr>`;
@@ -499,7 +502,7 @@
       <label class="card-sel">${selHTML(f, "c")}</label>
       <div class="card-poster">${posterHTML(f)}</div>
       <div class="card-head">
-        <div class="badges">${kindHTML(f)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}</div>
+        <div class="badges">${kindHTML(f)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}${wantHTML(f)}</div>
         <div class="title-ua">${esc(main)}</div>
         ${second ? `<div class="title-en">${esc(second)}</div>` : ""}
         ${metaHTML(f)}${fillHTML(f)}
@@ -513,9 +516,8 @@
       </div>` : ""}
       ${startHTML(f) ? `<div class="card-start">${startHTML(f)}</div>` : ""}
       <div class="card-actions">
-        <div class="card-votes${f.watched ? " is-rate" : ""}">
-          ${rateOrVote(f, myKey(), true)}
-          ${rateOrVote(f, theirKey(), true)}
+        <div class="card-votes${f.watched ? " is-rate" : " is-mine"}">
+          ${f.watched ? rateOrVote(f, myKey(), true) + rateOrVote(f, theirKey(), true) : voteHTML(f, myKey(), true)}
         </div>
         <div class="card-tools">
           ${watchHTML(f, "c")}
@@ -598,7 +600,10 @@
     let list = films.filter((f) => tabOf(f) === tab && kindOK(f) && (tab !== "declined" || decl === "all" || declOf(f) === decl));
     if (q) list = list.filter((f) => norm(f.name_en).includes(q) || norm(f.name_ua).includes(q));
     const t = (x) => (x ? Date.parse(x) || 0 : 0);
-    list.sort((a, b) => tab === "watched" ? t(b.watched_at) - t(a.watched_at) : t(b.created_at) - t(a.created_at));
+    const grp = (f) => (f[myKey()] ? 2 : f[theirKey()] === "yes" ? 0 : 1); // 0–1: needs your vote, 2: waiting for partner
+    list.sort((a, b) => tab === "watched" ? t(b.watched_at) - t(a.watched_at)
+      : tab === "proposed" ? grp(a) - grp(b) || t(b.created_at) - t(a.created_at)
+      : t(b.created_at) - t(a.created_at));
 
     const page = list.slice(0, shown);
     visibleIds = page.map((f) => f.id);
@@ -623,8 +628,23 @@
     }
     empty.hidden = true; $("#tableWrap").hidden = false; $("#cards").hidden = false;
     $("#tableWrap").classList.toggle("tab-watched", tab === "watched"); // star rows need a little more room
-    $("#rows").innerHTML = page.map(rowHTML).join("");
-    $("#cards").innerHTML = page.map(cardHTML).join("");
+    // section headers in Запропоновані: "waiting for your vote" / "waiting for your partner"
+    let rowsH = "", cardsH = "", lastG = null;
+    const mineN = list.filter((f) => !f[myKey()]).length, theirsN = list.length - mineN;
+    for (const f of page) {
+      if (tab === "proposed") {
+        const g = f[myKey()] ? "theirs" : "mine";
+        if (g !== lastG) {
+          const label = g === "mine" ? `${T("Чекає на ваш голос")} · ${mineN}` : `${T(partner() === "Alina" ? "Чекає на Аліну" : "Чекає на Алекса")} · ${theirsN}`;
+          rowsH += `<tr class="grp"><td colspan="12">${label}</td></tr>`;
+          cardsH += `<div class="grp">${label}</div>`;
+          lastG = g;
+        }
+      }
+      rowsH += rowHTML(f); cardsH += cardHTML(f);
+    }
+    $("#rows").innerHTML = rowsH;
+    $("#cards").innerHTML = cardsH;
     play(before);
   }
   // ---------- recommendations ----------
@@ -837,6 +857,7 @@
     for (const col of ["aleks", "alina"]) {
       if ((prev[col] || "") === (next[col] || "")) continue;
       if (!next[col]) return T(said(who, "{w} зняв голос: {t}", "{w} зняла голос: {t}"), { w: W, t });
+      if (next.aleks === "yes" && next.alina === "yes" && !next.watched) return T("Збіг! {t} → «Погоджені»", { t });
       return T(said(who, "{w} проголосував «{v}»: {t}", "{w} проголосувала «{v}»: {t}"), { w: W, t, v: T(next[col] === "yes" ? "Так" : "Ні") });
     }
     if (!prev.watched && next.watched) return T(said(who, "{w} позначив {t} переглянутим", "{w} позначила {t} переглянутим"), { w: W, t });
@@ -1075,7 +1096,7 @@
     const firstNew = shown;
     shown += PAGE; render();
     // move keyboard focus to the first newly shown item for screen-reader and keyboard users
-    const el = document.querySelectorAll(window.innerWidth > 900 ? "#rows tr" : "#cards .card")[firstNew];
+    const el = document.querySelectorAll(window.innerWidth > 900 ? "#rows tr[data-key]" : "#cards .card")[firstNew];
     const target = el && el.querySelector("input.sel");
     if (target) target.focus({ preventScroll: true });
   });
@@ -1089,7 +1110,11 @@
       const f = films.find((x) => x.id === id); if (!f) return;
       const who = el.dataset.who;
       if (who !== myKey()) return;
-      patchFilm(id, { [who]: f[who] === el.dataset.val ? "" : el.dataset.val });
+      const val = f[who] === el.dataset.val ? "" : el.dataset.val;
+      patchFilm(id, { [who]: val }).then((ok) => {
+        if (ok && val === "yes" && f[theirKey()] === "yes" && !f.watched)
+          toast(T("Збіг! {t} → «Погоджені»", { t: q2(titleOf(f)) }), { label: T("Відкрити"), run: () => selectTab("agreed") });
+      });
       // small press feedback on the re-rendered switch (only if the film stays in this list)
       if (motionOK()) requestAnimationFrame(() => document.querySelectorAll(`[data-act="vote"][data-id="${id}"][data-who="${who}"].on`)
         .forEach((b) => b.animate([{ transform: "scale(.92)" }, { transform: "none" }], { duration: 180, easing: EASE })));
