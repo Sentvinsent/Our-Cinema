@@ -523,7 +523,7 @@ th.c-sel { padding-top: 10px; }
   font-weight: 500; line-height: 1.3; letter-spacing: .02em; color: var(--ink); background: rgba(255, 255, 255, .08); white-space: nowrap; }
 .sbadge.hot, .nbadge { background: var(--accent); color: var(--accent-ink); }
 .tab { position: relative; }
-.tdot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); margin-left: -2px; flex: none; }
+.tdot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
 
 /* ===== Series: start button and progress ===== */
 .startbtn { appearance: none; display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 6px 10px; border-radius: 9px;
@@ -656,3 +656,44 @@ th.c-sel { padding-top: 10px; }
   .toast { width: auto; max-width: none; font-size: 15px; }
 }
 .c-name .ptag { border-radius: 8px; }
+
+/* ===== Phones: one list button instead of a scrolling tab strip ===== */
+.listbtn { display: none; }
+@media (max-width: 700px) {
+  .appbar .tabs { display: none; }
+  .listbtn { appearance: none; display: flex; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 0 12px 0 14px;
+    border: 1px solid var(--glass-rim, var(--line)); border-radius: 14px; background: rgba(255, 255, 255, .05); color: var(--ink);
+    font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; text-align: left; }
+  .listbtn:active { transform: scale(.99); }
+  .listbtn .lb-ico { width: 20px; height: 20px; fill: var(--accent); flex: none; }
+  .listbtn .lb-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .listbtn .n { font-family: var(--f-mono); font-size: 13px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: rgba(255, 255, 255, .10); }
+  .listbtn .lb-chev { width: 22px; height: 22px; fill: var(--muted); flex: none; }
+}
+.overlay.listsheet { align-items: flex-end; padding: 0; }
+.ls-box { width: 100%; display: grid; gap: 14px; padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  border-radius: 22px 22px 0 0; background: rgba(18, 20, 21, .97); border: 1px solid var(--glass-rim, var(--line)); border-bottom: 0;
+  box-shadow: 0 -20px 50px -20px rgba(0, 0, 0, .9); -webkit-backdrop-filter: saturate(140%) blur(20px); backdrop-filter: saturate(140%) blur(20px); }
+.ls-head { display: flex; align-items: center; justify-content: space-between; }
+.ls-h { font-weight: 600; font-size: 18px; }
+.ls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ls-item { appearance: none; position: relative; display: grid; gap: 2px; justify-items: start; text-align: left; min-height: 74px; padding: 12px 14px;
+  border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, .04); color: var(--ink); font: inherit; cursor: pointer; }
+.ls-item:active { transform: scale(.98); }
+.ls-n { font-family: var(--f-mono); font-size: 22px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ls-l { font-size: 15px; font-weight: 500; color: var(--muted); }
+.ls-item[aria-current="true"] { border-color: rgba(92, 229, 200, .6); background: rgba(92, 229, 200, .10); }
+.ls-item[aria-current="true"] .ls-n, .ls-item[aria-current="true"] .ls-l { color: var(--accent); }
+.ls-item .tdot { position: absolute; top: 12px; right: 12px; margin: 0; }
+
+/* ===== «Відхилені»: who declined ===== */
+.declf { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, .03); justify-self: start; }
+.declf[hidden] { display: none; }
+.declf button { appearance: none; display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; border-radius: 9px;
+  padding: 6px 12px; font: inherit; font-size: 14px; font-weight: 500; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.declf button .n { font-family: var(--f-mono); font-size: 11px; padding: 0 6px; border-radius: 999px; background: rgba(255, 255, 255, .08); color: var(--ink); }
+.declf button[aria-pressed="true"] { background: rgba(255, 255, 255, .10); color: var(--ink); }
+@media (max-width: 700px) {
+  .declf { display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; }
+  .declf button { justify-content: center; padding: 9px 4px; font-size: 14px; }
+}

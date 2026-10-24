@@ -6,17 +6,22 @@
   const IMG = "https://image.tmdb.org/t/p/";
   const TABS = [
     ["proposed", "Запропоновані"], ["agreed", "Погоджені"], ["watching", "Дивимось"], ["watched", "Переглянуті"],
-    ["recs", "Рекомендовані"], ["aleks", "Відхилив Алекс"], ["alina", "Відхилила Аліна"], ["both", "Відхилили обоє"],
+    ["recs", "Рекомендовані"], ["declined", "Відхилені"],
   ];
+  // «Відхилені» has its own small filter: everyone / declined by Aleks / by Alina / by both
+  const DECL = [["all", "Усі"], ["aleks", "Алекс"], ["alina", "Аліна"], ["both", "Обоє"]];
   const CARDS_ONLY = new Set(["watching", "recs"]); // few items with richer controls: cards on every screen size
   const EMPTY = {
     proposed: ["Поки нічого не запропоновано", "Додайте назву вгорі. Коли ви обоє проголосуєте «Так», фільм перейде до погоджених."],
     agreed: ["Погоджених фільмів ще немає", "Тут з’являються фільми, за які Алекс і Аліна обоє проголосували «Так»."],
     watching: ["Зараз нічого не дивитесь", "Натисніть «Почали дивитись» на серіалі — тут можна буде відмічати сезон і серію."],
     watched: ["Переглянутих ще немає", "Позначте «Переглянуто» на будь-якому фільмі, і він з’явиться тут."],
-    aleks: ["Алекс нічого не відхилив", "Тут фільми, за які Алекс проголосував «Ні» (а Аліна — ні)."],
-    alina: ["Аліна нічого не відхилила", "Тут фільми, за які Аліна проголосувала «Ні» (а Алекс — ні)."],
-    both: ["Обоє нічого не відхилили", "Тут фільми, за які ви обоє проголосували «Ні»."],
+    declined: ["Відхилених немає", "Тут з’являються назви, за які хтось із вас проголосував «Ні»."],
+  };
+  const EMPTY_DECL = {
+    aleks: ["Алекс нічого не відхилив", "Тут назви, за які Алекс проголосував «Ні» (а Аліна — ні)."],
+    alina: ["Аліна нічого не відхилила", "Тут назви, за які Аліна проголосувала «Ні» (а Алекс — ні)."],
+    both: ["Обоє нічого не відхилили", "Тут назви, за які ви обоє проголосували «Ні»."],
   };
   const NAME = { Aleks: "Алекс", Alina: "Аліна" };
   // TMDB genre names (English) → Ukrainian, for films saved before genres were stored in Ukrainian.
@@ -52,8 +57,15 @@
   const motionOK = () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const EASE = "cubic-bezier(.2,.8,.2,1)";
 
-  try { const t = localStorage.getItem("oc-tab"); if (TABS.some((x) => x[0] === t)) tab = t; } catch (e) {}
-  if (TABS.some((x) => "#" + x[0] === location.hash)) tab = location.hash.slice(1);
+  let decl = "all";
+  try { const d = localStorage.getItem("oc-decl"); if (DECL.some((x) => x[0] === d)) decl = d; } catch (e) {}
+  const OLD_DECL = { aleks: 1, alina: 1, both: 1 }; // the three declined tabs before they were merged
+  function tabFromKey(k) {
+    if (OLD_DECL[k]) { decl = k; return "declined"; }
+    return TABS.some((x) => x[0] === k) ? k : null;
+  }
+  try { const t = tabFromKey(localStorage.getItem("oc-tab")); if (t) tab = t; } catch (e) {}
+  { const t = tabFromKey(location.hash.slice(1)); if (t) tab = t; }
 
   // ---------- helpers ----------
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -79,12 +91,11 @@
     if (f.watched) return "watched";
     if (f.media_type === "tv" && f.next_s != null) return "watching";
     const a = f.aleks || "", b = f.alina || "";
-    if (a === "no" && b === "no") return "both";
-    if (a === "no") return "aleks";
-    if (b === "no") return "alina";
+    if (a === "no" || b === "no") return "declined";
     if (a === "yes" && b === "yes") return "agreed";
     return "proposed";
   }
+  const declOf = (f) => (f.aleks === "no" && f.alina === "no" ? "both" : f.aleks === "no" ? "aleks" : "alina");
 
   let toastTimer;
   function toast(msg, action) {
@@ -496,10 +507,28 @@
     const counts = Object.fromEntries(TABS.map(([k]) => [k, 0])), fresh = {};
     for (const f of films) if (kindOK(f)) { const k = tabOf(f); counts[k]++; if (isNew(f)) fresh[k] = true; }
     if (recs.status === "ready") counts.recs = recItems().length;
+    const showN = (k) => !(k === "recs" && recs.status !== "ready");
     $("#tabs").innerHTML = TABS.map(([k, label]) =>
       `<button class="tab" role="tab" data-tab="${k}" aria-selected="${k === tab}"><span>${label}</span>`
-      + (k === "recs" && recs.status !== "ready" ? "" : `<span class="n">${counts[k]}</span>`)
+      + (showN(k) ? `<span class="n">${counts[k]}</span>` : "")
       + (fresh[k] ? '<span class="tdot" title="Є нові"></span>' : "") + `</button>`).join("");
+    // phones: one button showing the current list; tapping it opens all lists in a panel
+    const cur = TABS.find((t) => t[0] === tab);
+    $("#listLabel").textContent = cur ? cur[1] : "";
+    $("#listCount").textContent = showN(tab) ? counts[tab] : "";
+    $("#listCount").hidden = !showN(tab);
+    $("#listDot").hidden = !Object.keys(fresh).some((k) => k !== tab);
+    $("#listGrid").innerHTML = TABS.map(([k, label]) =>
+      `<button type="button" class="ls-item" data-tab="${k}" aria-current="${k === tab}">`
+      + `<span class="ls-n">${showN(k) ? counts[k] : "…"}</span><span class="ls-l">${label}</span>`
+      + (fresh[k] ? '<span class="tdot" title="Є нові"></span>' : "") + `</button>`).join("");
+    // «Відхилені»: who declined
+    const dc = { all: 0, aleks: 0, alina: 0, both: 0 };
+    for (const f of films) if (kindOK(f) && tabOf(f) === "declined") { dc.all++; dc[declOf(f)]++; }
+    const df = $("#declFilter");
+    df.hidden = tab !== "declined";
+    df.innerHTML = DECL.map(([k, label]) =>
+      `<button type="button" data-decl="${k}" aria-pressed="${k === decl}">${label}<span class="n">${dc[k]}</span></button>`).join("");
     $("#app").classList.toggle("cards-only", CARDS_ONLY.has(tab));
     const watchedAll = films.filter((f) => f.watched).length;
     $("#stats").textContent = loaded ? `${films.length} ${plural(films.length, ["назва", "назви", "назв"])} · переглянуто ${watchedAll}` : "";
@@ -509,7 +538,7 @@
     if (tab === "recs") { renderRecs(before); return; }
 
     const q = norm(query);
-    let list = films.filter((f) => tabOf(f) === tab && kindOK(f));
+    let list = films.filter((f) => tabOf(f) === tab && kindOK(f) && (tab !== "declined" || decl === "all" || declOf(f) === decl));
     if (q) list = list.filter((f) => norm(f.name_en).includes(q) || norm(f.name_ua).includes(q));
     const t = (x) => (x ? Date.parse(x) || 0 : 0);
     list.sort((a, b) => tab === "watched" ? t(b.watched_at) - t(a.watched_at) : t(b.created_at) - t(a.created_at));
@@ -529,6 +558,7 @@
       const what = kind === "tv" ? "серіалів" : kind === "movie" ? "фільмів" : "";
       const [h, s] = q ? ["Нічого не знайдено", "У цьому списку немає назв, що відповідають пошуку."]
         : what && films.some((f) => tabOf(f) === tab) ? ["Тут порожньо", `У цьому списку немає ${what}. Змініть фільтр «Усі / Фільми / Серіали».`]
+        : tab === "declined" && decl !== "all" ? EMPTY_DECL[decl]
         : EMPTY[tab];
       empty.innerHTML = `<b>${esc(h)}</b>${esc(s)}`;
       empty.hidden = false; $("#tableWrap").hidden = true; $("#cards").hidden = true;
@@ -960,13 +990,25 @@
 
   // ---------- interactions ----------
   function selectTab(k) {
+    k = tabFromKey(k) || k;
     if (k !== tab) { selected.clear(); bulkArmed = false; resetPage(); }
     tab = k;
+    if (!$("#listSheet").hidden) closeOverlay("#listSheet");
     try { localStorage.setItem("oc-tab", k); } catch (e) {}
     try { history.replaceState(null, "", "#" + k); } catch (e) {}
     render();
   }
   $("#tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) selectTab(b.dataset.tab); });
+  $("#listBtn").addEventListener("click", () => openOverlay("#listSheet"));
+  $("#listGrid").addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) selectTab(b.dataset.tab); });
+  $("#listClose").addEventListener("click", () => closeOverlay("#listSheet"));
+  $("#listSheet").addEventListener("click", (e) => { if (e.target.id === "listSheet") closeOverlay("#listSheet"); });
+  $("#declFilter").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-decl]"); if (!b || b.dataset.decl === decl) return;
+    decl = b.dataset.decl;
+    try { localStorage.setItem("oc-decl", decl); } catch (err) {}
+    selected.clear(); bulkArmed = false; resetPage(); render();
+  });
   $("#search").addEventListener("input", (e) => { query = e.target.value; resetPage(); render(); });
   $("#kindFilter").addEventListener("click", (e) => {
     const b = e.target.closest("[data-kind]"); if (!b || b.dataset.kind === kind) return;
@@ -1055,7 +1097,7 @@
   });
   document.addEventListener("keydown", (e) => {
     if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('[data-act="desc"]')) { e.preventDefault(); e.target.click(); }
-    if (e.key === "Escape") { if (!$("#player").hidden) closePlayer(); else if (!$("#picker").hidden) closeOverlay("#picker"); else if (!$("#statsView").hidden) closeOverlay("#statsView"); else if (!$("#editor").hidden) closeEditor(); else if (selected.size) { selected.clear(); bulkArmed = false; render(); } }
+    if (e.key === "Escape") { if (!$("#listSheet").hidden) closeOverlay("#listSheet"); else if (!$("#player").hidden) closePlayer(); else if (!$("#picker").hidden) closeOverlay("#picker"); else if (!$("#statsView").hidden) closeOverlay("#statsView"); else if (!$("#editor").hidden) closeEditor(); else if (selected.size) { selected.clear(); bulkArmed = false; render(); } }
   });
 
   function openOverlay(sel) {
@@ -1343,7 +1385,7 @@
     ? navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).catch(() => null)
     : Promise.resolve(null);
   if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => {
-    if (e.data && e.data.type === "open-tab" && TABS.some((t) => t[0] === e.data.tab)) selectTab(e.data.tab);
+    if (e.data && e.data.type === "open-tab" && tabFromKey(e.data.tab)) selectTab(e.data.tab);
   });
   let installEvt = null;
   window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvt = e; $("#installBtn").hidden = false; });
