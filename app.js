@@ -100,9 +100,10 @@
     if (OLD_DECL[k]) { decl = k; return "declined"; }
     return TABS.some((x) => x[0] === k) ? k : null;
   }
-  try { const t = tabFromKey(localStorage.getItem("oc-tab")); if (t) tab = t; } catch (e) {}
+  // The site always opens on «Запропоновані». Only a phone notification picks another list
+  // (it opens the site with #agreed, #watched…); that mark is then removed from the address.
   const hashTab = tabFromKey(location.hash.slice(1));
-  if (hashTab) tab = hashTab;
+  if (hashTab) { tab = hashTab; try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} }
 
   // ---------- helpers ----------
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -1289,8 +1290,6 @@
     if (k !== tab) resetPage();
     tab = k;
     if (!$("#listSheet").hidden) closeOverlay("#listSheet");
-    try { localStorage.setItem("oc-tab", k); } catch (e) {}
-    try { history.replaceState(null, "", "#" + k); } catch (e) {}
     render();
   }
   $("#tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) selectTab(b.dataset.tab); });
@@ -1415,6 +1414,14 @@
   // the panel, stays inside it, and goes back to where it was when the panel closes.
   const ovStack = []; // [{ sel, ret, key, alt }], last = on top
   let popSkip = 0;    // history steps the page takes itself when a panel is closed with ✕ / Escape
+  // Closing a panel steps back in history a moment later, so a panel that opens right away
+  // (✎ in details opens the editor) reuses that history entry instead of racing the step back.
+  let pendingBack = 0, backTimer = null;
+  function stepBack() {
+    pendingBack++;
+    clearTimeout(backTimer);
+    backTimer = setTimeout(() => { const n = pendingBack; pendingBack = 0; if (n > 0) { popSkip++; try { history.go(-n); } catch (e) { popSkip--; } } }, 0);
+  }
   const topOverlay = () => { for (let i = ovStack.length - 1; i >= 0; i--) if (!$(ovStack[i].sel).hidden) return ovStack[i].sel; return null; };
   function closeTop(sel, viaHistory) {
     if (sel === "#swipe") closeSwipe(viaHistory);
@@ -1426,7 +1433,6 @@
   window.addEventListener("popstate", () => {
     if (popSkip > 0) popSkip--;
     else { const top = topOverlay(); if (top) closeTop(top, true); }
-    try { history.replaceState(history.state, "", "#" + tab); } catch (e) {} // keep the address showing the current list
   });
   // a selector that finds "the same" control again after the list or panel is redrawn
   function focusSel(el) {
@@ -1450,7 +1456,8 @@
     const key = focusSel(ret), alt = ret && ret.dataset && ret.dataset.id ? `[data-act="open"][data-id="${CSS.escape(ret.dataset.id)}"]` : "";
     o.hidden = false; document.body.style.overflow = "hidden"; document.body.classList.add("ov-open");
     ovStack.push({ sel, ret, key, alt });
-    try { history.pushState({ oc: "panel" }, "", location.href); } catch (e) {}
+    if (pendingBack > 0) pendingBack--; // take over the entry of the panel that just closed
+    else try { history.pushState({ oc: "panel" }, "", location.href); } catch (e) {}
     const box = o.firstElementChild;
     if (motionOK()) {
       o.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" });
@@ -1463,7 +1470,7 @@
     let i = ovStack.length - 1; while (i >= 0 && ovStack[i].sel !== sel) i--;
     if (o.hidden && i < 0) return;
     const entry = i >= 0 ? ovStack.splice(i, 1)[0] : null;
-    if (entry && viaHistory !== true) { popSkip++; try { history.back(); } catch (e) { popSkip--; } }
+    if (entry && viaHistory !== true) stepBack();
     if (!ovStack.length) document.body.classList.remove("ov-open");
     const done = () => {
       o.hidden = true;
@@ -2045,7 +2052,7 @@
 
   async function onSession(session) {
     if (!session) { started = false; showGate(); return; }
-    if (/access_token|refresh_token/.test(location.hash)) { try { history.replaceState(null, "", location.pathname + "#" + tab); } catch (e) {} }
+    if (/access_token|refresh_token/.test(location.hash)) { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} }
     const { data: name, error } = await sb.rpc("member_name");
     if (error || !name) {
       await sb.auth.signOut();
@@ -2069,11 +2076,6 @@
     } catch (e) {}
     render();
     await loadFilms();
-    if (!hashTab) { // start where there's something to do
-      const has = (k) => films.some((f) => tabOf(f) === k);
-      const start = films.some((f) => tabOf(f) === "proposed" && !f[myKey()]) ? "proposed" : has("watching") ? "watching" : has("agreed") ? "agreed" : null;
-      if (start && start !== tab) selectTab(start);
-    }
     subscribe();
     autoMatch();
     setTimeout(() => { refreshMeta().then(() => ensureRecs()); }, 1500);
