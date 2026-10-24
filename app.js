@@ -360,15 +360,20 @@
   const fmtDate = (d) => { const t = d ? new Date(d + "T12:00:00") : null; return t && !isNaN(t) ? t.toLocaleDateString(LOCALE(), { day: "numeric", month: "short" }) : T("скоро"); };
   const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6L20.1 8.4 18.7 7z"/></svg>';
   const CROSS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6 10.6 12 5 6.4z"/></svg>';
-  function provHTML(f) {
+  // mode "row": label + chips with logo and name (cards, picker); "icons": logos only (narrow table column)
+  function provHTML(f, mode = "row") {
     const p = f.providers;
     if (!p || f.watched) return "";
     const subs = p.sub || [];
-    if (!subs.length) return `<div class="prov"><span class="ptag none">${T(p.paid ? "Лише оренда або купівля" : "Немає на стрімінгах у Польщі")}</span></div>`;
-    const top = subs.slice(0, 4), more = subs.length - top.length;
-    return `<div class="prov" role="list" aria-label="${T("Де дивитись у Польщі")}">${top.map((x) =>
-      `<span class="ptag" role="listitem">${x.l ? `<img src="${esc(IMG + "w45" + x.l)}" alt="" loading="lazy">` : ""}${esc(x.n)}</span>`).join("")}`
-      + (more > 0 ? `<span class="ptag more" role="listitem">+${more}</span>` : "") + `</div>`;
+    const label = mode === "row" ? `<span class="prov-l">${T("Де дивитись")}</span>` : "";
+    if (!subs.length) return `<div class="prov prov-${mode}">${label}<span class="ptag none">${T(p.paid ? "Лише оренда або купівля" : "Немає на стрімінгах у Польщі")}</span></div>`;
+    const top = subs.slice(0, mode === "icons" ? 5 : 4), more = subs.length - top.length;
+    const logo = (x) => (x.l ? `<img src="${esc(IMG + "w45" + x.l)}" alt="" loading="lazy">` : `<span class="plogo">${esc(x.n.charAt(0))}</span>`);
+    const chip = (x) => mode === "icons"
+      ? `<span class="ptag icon" role="listitem" title="${esc(x.n)}" aria-label="${esc(x.n)}">${logo(x)}</span>`
+      : `<span class="ptag" role="listitem">${logo(x)}<span>${esc(x.n)}</span></span>`;
+    return `<div class="prov prov-${mode}" role="list" aria-label="${T("Де дивитись у Польщі")}">${label}${top.map(chip).join("")}`
+      + (more > 0 ? `<span class="ptag more" role="listitem" title="${esc(subs.slice(top.length).map((x) => x.n).join(", "))}">+${more}</span>` : "") + `</div>`;
   }
   // next_s / next_e = the next episode you are going to watch. Past the end of a season it rolls
   // over to episode 1 of the next season as soon as TMDB lists that season.
@@ -471,7 +476,7 @@
       <td class="c-sel">${selHTML(f, "t")}</td>
       <td class="c-poster">${posterHTML(f)}</td>
       <td class="c-name"><div class="badges">${kindHTML(f)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}</div><div class="title-en">${f.name_en ? esc(f.name_en) : '<span class="dim">—</span>'}</div>${metaHTML(f)}${fillHTML(f)}</td>
-      <td class="c-name"><div class="title-ua" lang="uk">${f.name_ua ? esc(f.name_ua) : '<span class="dim">—</span>'}</div>${provHTML(f)}${startHTML(f)}</td>
+      <td class="c-name"><div class="title-ua" lang="uk">${f.name_ua ? esc(f.name_ua) : '<span class="dim">—</span>'}</div>${provHTML(f, "icons")}${startHTML(f)}</td>
       <td class="c-desc">${descHTML(f, "en")}</td>
       <td class="c-desc">${descHTML(f, "ua")}</td>
       <td class="c-tr">${trailerHTML(f, "en", T("Англ."))}</td>
@@ -497,8 +502,9 @@
         <div class="badges">${kindHTML(f)}${scoreHTML(f)}${seasonBadgeHTML(f)}${newHTML(f)}</div>
         <div class="title-ua">${esc(main)}</div>
         ${second ? `<div class="title-en">${esc(second)}</div>` : ""}
-        ${metaHTML(f)}${fillHTML(f)}${provHTML(f)}
+        ${metaHTML(f)}${fillHTML(f)}
       </div>
+      ${provHTML(f) ? `<div class="card-prov">${provHTML(f)}</div>` : ""}
       ${progressHTML(f) ? `<div class="card-prog">${progressHTML(f)}</div>` : ""}
       ${tr ? `<div class="card-trailers">${tr}</div>` : ""}
       ${f.desc_en || f.desc_ua ? `<div class="card-desc">

@@ -65,6 +65,7 @@ window.OC_EN = {
   "Лише оренда або купівля": "Rent or buy only",
   "Немає на стрімінгах у Польщі": "Not streaming in Poland",
   "Де дивитись у Польщі": "Where to watch in Poland",
+  "Де дивитись": "Watch on",
   "Новий сезон {n}": "New season {n}",
   "Сезон {s} · {d}": "Season {s} · {d}",
   "Нова серія · {d}": "New episode · {d}",

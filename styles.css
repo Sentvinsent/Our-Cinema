@@ -747,3 +747,31 @@ th.c-sel { padding-top: 10px; }
 .menu-lang { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; margin: 2px 4px 6px; border: 1px solid var(--line); border-radius: 10px; }
 .menu-lang button { padding: 8px 6px; font-size: 14px; font-weight: 500; }
 .menu-lang button[aria-pressed="true"] { color: var(--accent); }
+
+/* ===== Where to watch v2: one aligned row, even chips ===== */
+.prov { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 0; }
+.ptag { height: 30px; box-sizing: border-box; gap: 7px; padding: 0 11px 0 4px; border-radius: 9px; font-size: 13px; line-height: 1;
+  white-space: nowrap; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .08); }
+.ptag img, .ptag .plogo { width: 22px; height: 22px; border-radius: 6px; flex: none; }
+.ptag .plogo { display: grid; place-items: center; background: rgba(255, 255, 255, .12); font-size: 12px; font-weight: 600; }
+.ptag.more, .ptag.none { padding: 0 10px; }
+.prov-l { font-family: var(--f-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.card-prov { grid-column: 1 / -1; }
+/* narrow table column: logos only */
+.prov-icons { gap: 4px; margin-top: 8px; }
+.prov-icons .ptag.icon { width: 30px; padding: 0; justify-content: center; }
+.prov-icons .ptag.more { height: 30px; padding: 0 7px; font-size: 12px; }
+.prov-icons .ptag.none { height: auto; min-height: 26px; padding: 4px 8px; white-space: normal; line-height: 1.25; font-size: 12px; }
+.c-name .ptag { border-radius: 9px; white-space: nowrap; }
+.c-name .ptag.none { white-space: normal; }
+/* random pick: centred */
+.pick-info .prov { margin-top: 6px; }
+/* cards and picker: label on its own line, chips in an even grid */
+.prov-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.prov-row .prov-l { grid-column: 1 / -1; margin: 0 0 -1px; }
+.prov-row .ptag { width: 100%; min-width: 0; }
+.prov-row .ptag > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.prov-row .ptag.more, .prov-row .ptag.none { justify-content: center; }
+.prov-row .ptag.none { grid-column: 1 / -1; justify-content: flex-start; }
+.pick-info .prov-row { width: 100%; max-width: 320px; }
+@media (max-width: 560px) { .pick-info .prov-row { margin-inline: auto; } }
