@@ -1844,7 +1844,7 @@
     let asked = false; try { asked = !!localStorage.getItem("oc-push-asked"); } catch (e) {}
     if (Notification.permission === "default" && !asked) {
       try { localStorage.setItem("oc-push-asked", "1"); } catch (e) {}
-      setTimeout(() => toast(T("Сповіщати на цьому пристрої, коли {who} щось додає, голосує чи оцінює?", { who: NAME[partner()] }), { label: T("Увімкнути"), run: enablePush }), 2500);
+      setTimeout(() => toast(T("Сповіщати на цьому пристрої, коли {who} додає або видаляє фільми й серіали?", { who: NAME[partner()] }), { label: T("Увімкнути"), run: enablePush }), 2500);
     }
   }
 

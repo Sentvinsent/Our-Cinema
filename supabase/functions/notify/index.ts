@@ -1,4 +1,4 @@
-// Наше кіно — sends a phone notification to your partner when you add, vote, rate or finish something.
+// Наше кіно — sends a phone notification to your partner when you add or delete a title.
 // Called by the database trigger public.films_notify() (see supabase/notifications.sql), which signs each
 // call with a shared secret. Keys live in public.app_secrets, readable only with the service role.
 // Each subscription remembers its device's language (uk / en), and the message is written in it.
@@ -16,31 +16,11 @@ const titleOf = (r: Row, lang: Lang) => (r && (lang === "en" ? r.name_en || r.na
 
 function describe(lang: Lang, type: string, actor: string, rec: Row, old: Row) {
   const en = lang === "en", W = NAMES[lang][actor] ?? actor;
-  const forWhom = (col: string) => (col.startsWith("aleks") ? (en ? "Aleks" : "Алекса") : (en ? "Alina" : "Аліну"));
   if (type === "INSERT" && rec) {
     const what = rec.media_type === "tv" ? (en ? "a series" : "серіал") : (en ? "a film" : "фільм");
     return { title: en ? `${W} added ${what}` : `${W} ${said(actor, "додав", "додала")} ${what}`, body: titleOf(rec, lang), tab: "proposed" };
   }
   if (type === "DELETE") return { title: en ? `${W} removed from the list` : `${W} ${said(actor, "видалив", "видалила")} зі списку`, body: titleOf(old, lang), tab: "" };
-  if (!rec || !old) return null;
-  if (!old.watched && rec.watched) {
-    return { title: en ? `${W} marked as watched` : `${W} ${said(actor, "позначив", "позначила")} переглянутим`, body: titleOf(rec, lang), tab: "watched" };
-  }
-  for (const col of ["aleks", "alina"]) {
-    if ((old[col] || "") === (rec[col] || "") || !rec[col]) continue;
-    const other = col !== actor.toLowerCase() ? (en ? ` for ${forWhom(col)}` : ` за ${forWhom(col)}`) : "";
-    const yes = rec[col] === "yes", agreed = rec.aleks === "yes" && rec.alina === "yes" && !rec.watched;
-    return {
-      title: en ? `${W} voted “${yes ? "Yes" : "No"}”${other}` : `${W} ${said(actor, "проголосував", "проголосувала")}${other} «${yes ? "Так" : "Ні"}»`,
-      body: titleOf(rec, lang) + (agreed ? (en ? " — now in Agreed" : " — тепер у «Погоджених»") : ""),
-      tab: agreed ? "agreed" : "proposed",
-    };
-  }
-  for (const col of ["aleks_rating", "alina_rating"]) {
-    if (old[col] === rec[col] || !rec[col]) continue;
-    const other = col !== `${actor.toLowerCase()}_rating` ? (en ? ` (for ${forWhom(col)})` : ` (за ${forWhom(col)})`) : "";
-    return { title: en ? `${W} rated it ${rec[col]}/10${other}` : `${W} ${said(actor, "оцінив", "оцінила")} на ${rec[col]}/10${other}`, body: titleOf(rec, lang), tab: "watched" };
-  }
   return null;
 }
 

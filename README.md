@@ -25,7 +25,8 @@ A private, shared watchlist for Aleks and Alina.
 - **Рекомендовані:** suggestions from TMDB based on titles you rated 7+ or both agreed on; add them in one tap or hide them.
 - **Статистика** (account menu): totals, hours, average ratings, how often you agree, top genres, titles per month.
 - **Notifications:** a short message on the site when the other person adds, votes, rates or deletes something, a
-  «Нове» badge on titles they added since your last visit, and optional phone notifications (account menu).
+  «Нове» badge on titles they added since your last visit, and optional phone notifications (account menu) when
+  the other person adds or deletes a title.
 - **Installable:** add it to the home screen to open it like an app.
 - **Compact list + details:** phone cards show the essentials and one action for that list (vote, mark watched, start a
   series, next episode, or ratings); tap a card for details (one description with a UA/EN switch, trailers, where to

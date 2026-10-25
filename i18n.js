@@ -219,7 +219,7 @@ window.OC_EN = {
   "Не вдалося зберегти підписку. Спробуйте ще раз.": "Couldn’t save the subscription. Please try again.",
   "Цей браузер не дав підписатися на сповіщення.": "This browser didn’t allow notifications.",
   "Сповіщення на цьому пристрої вимкнено": "Notifications are off on this device",
-  "Сповіщати на цьому пристрої, коли {who} щось додає, голосує чи оцінює?": "Notify you on this device when {who} adds, votes or rates something?",
+  "Сповіщати на цьому пристрої, коли {who} додає або видаляє фільми й серіали?": "Notify you on this device when {who} adds or removes films and series?",
   "Увімкнути": "Turn on",
   "Аліни": "Alina", "Алекса": "Aleks",
   "Мова": "Language",
