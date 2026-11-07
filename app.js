@@ -968,6 +968,8 @@
       await Promise.all([worker(), worker(), worker()]);
       if (src.length && failed === src.length) throw new Error("all sources failed");
       const items = [...agg.values()].sort((a, b) => b.score - a.score || b.pop - a.pop).slice(0, 80);
+      const had = new Map(prev.filter((x) => x.tr).map((x) => [recKey(x.type, x.id), x.tr]));
+      items.forEach((x) => { const tr = had.get(recKey(x.type, x.id)); if (tr) x.tr = tr; });
       recs = { status: "ready", items, sig, at: Date.now() };
       // only a complete answer is kept for 12 hours; a partial one is tried again next time
       if (!failed) try { localStorage.setItem("oc-recs", JSON.stringify({ sig, at: recs.at, items })); } catch (e) {}
@@ -992,12 +994,49 @@
         <div class="because">${T("Бо вам сподобалось:")} ${r.because.map((b) => (isEn() ? "“" + esc(b) + "”" : "«" + esc(b) + "»")).join(", ")}</div>
       </div>
       ${r.overview ? `<div class="card-desc"><div><div class="desc${open ? " open" : ""}" lang="uk" data-act="desc" data-key="${dk}" role="button" tabindex="0" aria-expanded="${open}">${esc(r.overview)}</div></div></div>` : ""}
+      ${recTrailersBox(r)}
       <div class="rec-actions">
         <button type="button" class="btn primary" data-act="rec-add" data-type="${r.type}" data-tid="${r.id}" data-key2="${key}">${T("+ Додати до списку")}</button>
         <button type="button" class="btn rec-seen" data-act="rec-seen" data-type="${r.type}" data-tid="${r.id}" data-key2="${key}">${CHECK}${T("Уже дивились")}</button>
         <button type="button" class="btn" data-act="rec-hide" data-type="${r.type}" data-tid="${r.id}" data-key2="${key}">${T("Не цікаво")}</button>
       </div>
     </article>`;
+  }
+  // ---------- trailers for recommendations: looked up for the cards on screen, then kept with the list ----------
+  const recTrFailed = new Set(); // lookups that failed this session (tried again after a reload)
+  let recTrBusy = false;
+  function recTrailersHTML(r) {
+    if (!r.tr) return `<span class="trl trl-wait">${PLAY}<span>${T("Шукаємо трейлер…")}</span></span>`;
+    const b = (which, label) => `<button type="button" class="trl" data-act="rec-play" data-type="${r.type}" data-tid="${r.id}" data-which="${which}">${PLAY}<span>${esc(label)}</span></button>`;
+    const ua = r.tr.ua ? b("ua", T("Трейлер укр.")) : "", en = r.tr.en ? b("en", T("Трейлер англ.")) : "";
+    return isEn() ? en + ua : ua + en;
+  }
+  function recTrailersBox(r) {
+    const k = recKey(r.type, r.id), none = (r.tr && !r.tr.en && !r.tr.ua) || (!r.tr && recTrFailed.has(k));
+    return `<div class="card-trailers rec-trl" data-k="${k}"${none ? " hidden" : ""}>${none ? "" : recTrailersHTML(r)}</div>`;
+  }
+  async function loadRecTrailers(items) {
+    const todo = items.filter((r) => !r.tr && !recTrFailed.has(recKey(r.type, r.id)));
+    if (!todo.length || recTrBusy) return;
+    recTrBusy = true;
+    let i = 0;
+    const worker = async () => {
+      while (i < todo.length) {
+        const r = todo[i++];
+        try {
+          const d = await tmdb(`/${r.type}/${r.id}`, { language: "en-US", append_to_response: "videos", include_video_language: "en,uk,null" });
+          const vids = (d.videos && d.videos.results) || [];
+          r.tr = { en: ytUrl(pickTrailer(vids, "en")), ua: ytUrl(pickTrailer(vids, "uk")) };
+        } catch (e) { recTrFailed.add(recKey(r.type, r.id)); }
+        // update just this card, so the list doesn't jump around while you read it
+        const box = document.querySelector(`#cards .rec-trl[data-k="${recKey(r.type, r.id)}"]`);
+        if (box) box.outerHTML = recTrailersBox(r);
+      }
+    };
+    try { await Promise.all([worker(), worker(), worker()]); }
+    finally { recTrBusy = false; }
+    try { const c = JSON.parse(localStorage.getItem("oc-recs") || "null"); if (c && c.sig === recs.sig) { c.items = recs.items; localStorage.setItem("oc-recs", JSON.stringify(c)); } } catch (e) {}
+    if (tab === "recs") loadRecTrailers(recItems().slice(0, shown)); // «Показати ще» pressed meanwhile
   }
   function renderRecs(before) {
     const empty = $("#empty"), more = $("#more");
@@ -1030,6 +1069,7 @@
     empty.hidden = true; $("#cards").hidden = false;
     $("#cards").innerHTML = page.map(recCardHTML).join("");
     play(before);
+    loadRecTrailers(page);
   }
   function resetPage() { shown = PAGE; }
 
@@ -1376,6 +1416,10 @@
         .then(async (ok) => { if (ok) { await animateOut([key]); render(); } else { btns.forEach((b) => (b.disabled = false)); el.classList.remove("busy"); } });
     }
     else if (act === "rec-retry") ensureRecs(true);
+    else if (act === "rec-play") {
+      const r = recs.items.find((x) => x.type === el.dataset.type && x.id === Number(el.dataset.tid));
+      if (r && r.tr) openPlayer({ name_ua: r.title, name_en: r.title, year: r.year, trailer_en: r.tr.en, trailer_ua: r.tr.ua }, el.dataset.which);
+    }
     else if (act === "rec-hide") {
       const type = el.dataset.type, tid = Number(el.dataset.tid), k = recKey(type, tid);
       animateOut([el.dataset.key2]).then(() => { recHidden.add(k); render(); });

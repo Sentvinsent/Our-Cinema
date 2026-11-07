@@ -272,6 +272,7 @@ window.OC_EN = {
 
   // recommendations: mark as already watched
   "Уже дивились": "Already watched",
+  "Шукаємо трейлер…": "Looking for a trailer…",
   "«{t}» тепер у «Переглянутих»": "“{t}” is now in Watched",
   "Оцінити": "Rate",
   "{w} додав {t} до «Переглянутих»": "{w} added {t} to Watched", "{w} додала {t} до «Переглянутих»": "{w} added {t} to Watched",

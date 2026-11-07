@@ -557,6 +557,9 @@ body.has-bulk #app.wrap { padding-bottom: 100px; }
 .rec-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .rec-actions .btn { padding-inline: 10px; white-space: normal; text-align: center; line-height: 1.2; }
 .rec-actions .btn:not(.primary) { font-size: 14px; }
+.rec-trl .trl { min-height: 40px; }
+.trl-wait { cursor: default; color: var(--muted); opacity: .7; }
+.trl-wait svg { fill: var(--muted); }
 @media (max-width: 360px) { .rec-actions .rec-seen svg { display: none; } }
 .rec-actions .btn.primary { grid-column: 1 / -1; }
 .rec-actions .rec-seen svg { width: 16px; height: 16px; fill: currentColor; margin-right: 4px; flex: none; }
