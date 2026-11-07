@@ -269,6 +269,12 @@ window.OC_EN = {
 
   // add to Home Screen on iPhone / iPad
   "Встановити на {d}": "Install on {d}",
+
+  // recommendations: mark as already watched
+  "Уже дивились": "Already watched",
+  "«{t}» тепер у «Переглянутих»": "“{t}” is now in Watched",
+  "Оцінити": "Rate",
+  "{w} додав {t} до «Переглянутих»": "{w} added {t} to Watched", "{w} додала {t} до «Переглянутих»": "{w} added {t} to Watched",
   "Відкрийте цей сайт у Safari. Chrome теж підійде, якщо на {d} iOS 16.4 чи новіша.": "Open this site in Safari. Chrome works too if your {d} has iOS 16.4 or newer.",
   "Натисніть «Поділитися» {i} на панелі браузера. У новіших iOS ця кнопка може бути в меню «•••».": "Tap Share {i} in the browser’s toolbar. On newer iOS it may be inside the “•••” menu.",
   "Прокрутіть список дій і виберіть «На Початковий екран» (англійською — «Add to Home Screen»).": "Scroll the list of actions and choose “Add to Home Screen”.",

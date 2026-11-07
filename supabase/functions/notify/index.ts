@@ -18,6 +18,7 @@ function describe(lang: Lang, type: string, actor: string, rec: Row, old: Row) {
   const en = lang === "en", W = NAMES[lang][actor] ?? actor;
   if (type === "INSERT" && rec) {
     const what = rec.media_type === "tv" ? (en ? "a series" : "серіал") : (en ? "a film" : "фільм");
+    if (rec.watched) return { title: en ? `${W} added ${what} to Watched` : `${W} ${said(actor, "додав", "додала")} ${what} до «Переглянутих»`, body: titleOf(rec, lang), tab: "watched" };
     return { title: en ? `${W} added ${what}` : `${W} ${said(actor, "додав", "додала")} ${what}`, body: titleOf(rec, lang), tab: "proposed" };
   }
   if (type === "DELETE") return { title: en ? `${W} removed from the list` : `${W} ${said(actor, "видалив", "видалила")} зі списку`, body: titleOf(old, lang), tab: "" };

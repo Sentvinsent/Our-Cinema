@@ -554,7 +554,12 @@ body.has-bulk #app.wrap { padding-bottom: 100px; }
 .card.rec { grid-template-columns: 84px minmax(0, 1fr); }
 .card.rec .poster { cursor: default; }
 .because { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
-.rec-actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.rec-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.rec-actions .btn { padding-inline: 10px; white-space: normal; text-align: center; line-height: 1.2; }
+.rec-actions .btn:not(.primary) { font-size: 14px; }
+@media (max-width: 360px) { .rec-actions .rec-seen svg { display: none; } }
+.rec-actions .btn.primary { grid-column: 1 / -1; }
+.rec-actions .rec-seen svg { width: 16px; height: 16px; fill: currentColor; margin-right: 4px; flex: none; }
 .rec-actions .btn { min-height: 42px; }
 .btn.busy { opacity: .6; pointer-events: none; }
 

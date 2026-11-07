@@ -994,6 +994,7 @@
       ${r.overview ? `<div class="card-desc"><div><div class="desc${open ? " open" : ""}" lang="uk" data-act="desc" data-key="${dk}" role="button" tabindex="0" aria-expanded="${open}">${esc(r.overview)}</div></div></div>` : ""}
       <div class="rec-actions">
         <button type="button" class="btn primary" data-act="rec-add" data-type="${r.type}" data-tid="${r.id}" data-key2="${key}">${T("+ Додати до списку")}</button>
+        <button type="button" class="btn rec-seen" data-act="rec-seen" data-type="${r.type}" data-tid="${r.id}" data-key2="${key}">${CHECK}${T("Уже дивились")}</button>
         <button type="button" class="btn" data-act="rec-hide" data-type="${r.type}" data-tid="${r.id}" data-key2="${key}">${T("Не цікаво")}</button>
       </div>
     </article>`;
@@ -1112,7 +1113,7 @@
           if (p.new.updated_by && p.new.updated_by !== me) {
             const msg = prev ? describe(prev, p.new)
               : p.eventType === "INSERT" ? T(Date.now() - Date.parse(p.new.created_at) > 60e3 // an old title coming back = «Скасувати» after a delete
-                ? said(p.new.updated_by, "{w} відновив {t}", "{w} відновила {t}") : said(p.new.updated_by, "{w} додав {t}", "{w} додала {t}"), { w: NAME[p.new.updated_by] || T("Хтось"), t: q2(titleOf(p.new)) }) : "";
+                ? said(p.new.updated_by, "{w} відновив {t}", "{w} відновила {t}") : p.new.watched ? said(p.new.updated_by, "{w} додав {t} до «Переглянутих»", "{w} додала {t} до «Переглянутих»") : said(p.new.updated_by, "{w} додав {t}", "{w} додала {t}"), { w: NAME[p.new.updated_by] || T("Хтось"), t: q2(titleOf(p.new)) }) : "";
             if (msg) notifyAct(msg);
           }
         }
@@ -1261,8 +1262,9 @@
     addBtn.disabled = true; addBtn.classList.add("busy");
     try {
       const d = await fetchDetails(r.type, r.id);
-      const row = await insertFilm(d);
-      if (row && opts.stay) toast(T("Додано «{t}» до «Запропонованих»", { t: titleOf(row) }), { label: T("Відкрити"), run: () => selectTab("proposed") });
+      const row = await insertFilm(opts.watched ? { ...d, ...watchedPatch(d, true) } : d);
+      if (row && opts.watched) toast(T("«{t}» тепер у «Переглянутих»", { t: titleOf(row) }), { label: T("Оцінити"), run: () => { selectTab("watched"); openDetails(row.id); } });
+      else if (row && opts.stay) toast(T("Додано «{t}» до «Запропонованих»", { t: titleOf(row) }), { label: T("Відкрити"), run: () => selectTab("proposed") });
       else if (row) { addInput.value = ""; addSuggest.clear(); if (tab !== "proposed") selectTab("proposed"); toast(T("Додано «{t}»", { t: titleOf(row) })); }
       return !!row;
     } catch (e) { if (opts.stay) toast(tmdbMsg(e)); else showAddMsg(tmdbMsg(e)); return false; }
@@ -1365,12 +1367,13 @@
     }
     else if (act === "finish") { const f = films.find((x) => x.id === id); if (f) patchFilm(id, watchedPatch(f, true)); }
     else if (act === "stop") patchFilm(id, { next_s: null, next_e: null });
-    else if (act === "rec-add") {
+    else if (act === "rec-add" || act === "rec-seen") { // add to «Запропоновані», or straight to «Переглянуті»
       if (el.disabled) return;
-      el.disabled = true; el.classList.add("busy");
+      const btns = [...el.closest(".rec-actions").querySelectorAll("button")];
+      btns.forEach((b) => (b.disabled = true)); el.classList.add("busy");
       const key = el.dataset.key2;
-      addFromResult({ id: Number(el.dataset.tid), type: el.dataset.type }, { stay: true })
-        .then(async (ok) => { if (ok) { await animateOut([key]); render(); } else { el.disabled = false; el.classList.remove("busy"); } });
+      addFromResult({ id: Number(el.dataset.tid), type: el.dataset.type }, { stay: true, watched: act === "rec-seen" })
+        .then(async (ok) => { if (ok) { await animateOut([key]); render(); } else { btns.forEach((b) => (b.disabled = false)); el.classList.remove("busy"); } });
     }
     else if (act === "rec-retry") ensureRecs(true);
     else if (act === "rec-hide") {
